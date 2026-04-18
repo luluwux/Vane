@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Vane",
+  "version": "0.1.0",
+  "identifier": "com.vane.dpi",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Vane",
+        "width": 320,
+        "height": 260,
+        "minWidth": 320,
+        "minHeight": 260,
+        "maxWidth": 320,
+        "maxHeight": 260,
+        "resizable": false,
+        "maximizable": false,
+        "decorations": false,
+        "transparent": true,
+        "center": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://ip-api.com https://ip-api.com https://gist.githubusercontent.com https://cloudflare-dns.com https://dns.google; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: https://asset.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "Archey Inc",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [
+      "binaries/*"
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false,
+        "installMode": "perMachine"
+      }
+    }
+  },
+  "plugins": {
+    "shell": {
+      "open": false
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/luluwux/Vane/releases/latest/download/latest.json"
+      ],
+      "dialog": false,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEwNjA5QjcwQjZCQzRGOTQKUldTVVQ3eTJjSnRnb04zdyszSlVjSzdXRC9VZFZPTm5sWHFLWndhcFlZR0lmdzk3eWUwT3R2TjQK"
+    }
+  }
+}

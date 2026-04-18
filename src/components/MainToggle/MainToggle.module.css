@@ -1,0 +1,170 @@
+/* MainToggle container */
+.toggleWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+/* Glow halkası (arkada) */
+.glowRing {
+  position: absolute;
+  inset: -20px;
+  border-radius: var(--radius-full);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-slow);
+}
+
+.glowRing--running {
+  background: radial-gradient(circle, var(--color-accent-glow) 0%, transparent 70%);
+  opacity: 1;
+}
+
+.glowRing--starting {
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, transparent 70%);
+  opacity: 1;
+}
+
+.glowRing--error {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.3) 0%, transparent 70%);
+  opacity: 1;
+}
+
+/* Ana toggle butonu */
+.toggleButton {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: var(--radius-full);
+  border: none;
+  cursor: pointer;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  background: transparent;
+}
+
+.toggleButton:focus-visible .buttonInner {
+  box-shadow:
+    var(--button-shadow),
+    0 0 0 3px var(--color-accent);
+}
+
+/* İç buton dairesi */
+.buttonInner {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-1);
+  transition:
+    background var(--transition-normal),
+    box-shadow var(--transition-normal),
+    transform var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.buttonInner::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+/* État renkleri */
+.buttonInner--stopped {
+  background: linear-gradient(145deg, #1e1e2e, #14141f);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px var(--color-border);
+}
+
+.buttonInner--starting {
+  background: linear-gradient(145deg, #2a2210, #1a160a);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 30px rgba(245, 158, 11, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.buttonInner--running {
+  background: linear-gradient(145deg, #1e1248, #120b30);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(139, 92, 246, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.buttonInner--error {
+  background: linear-gradient(145deg, #2a1010, #1a0a0a);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 30px rgba(239, 68, 68, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.toggleButton:active .buttonInner {
+  transform: scale(0.97);
+}
+
+/* Power icon */
+.powerIcon {
+  width: 40px;
+  height: 40px;
+}
+
+.powerIcon--stopped { color: var(--color-text-muted); }
+.powerIcon--starting { color: var(--color-warning); }
+.powerIcon--running { color: var(--color-accent-light); }
+.powerIcon--error { color: var(--color-error); }
+
+/* Durum metni */
+.statusText {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.statusText--stopped  { color: var(--color-text-muted); }
+.statusText--starting { color: var(--color-warning); }
+.statusText--running  { color: var(--color-accent-light); }
+.statusText--error    { color: var(--color-error); }
+
+/* Pulse animasyonu (starting) */
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.pulseRing {
+  position: absolute;
+  inset: -8px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-warning);
+  animation: pulse-ring 1.4s ease-out infinite;
+  pointer-events: none;
+}
+
+/* Outer ring indicator (running) */
+.orbitRing {
+  position: absolute;
+  inset: -12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-accent);
+  pointer-events: none;
+}

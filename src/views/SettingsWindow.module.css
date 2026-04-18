@@ -1,0 +1,206 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(--color-bg-primary);
+  color: #ffffff;
+  overflow: hidden;
+  border: 1px solid var(--color-bg-primary);
+}
+
+/* --- TITLE BAR --- */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 32px;
+  background: var(--color-bg-primary);
+  position: relative;
+  z-index: 100;
+  /* SideBar'ın üzerine binmemesi için */
+}
+
+.dragRegion {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+
+}
+
+.windowTitle {
+  font-size: 11px;
+  font-weight: 500;
+  color: #909296;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.windowControls {
+  display: flex;
+  height: 100%;
+}
+
+.controlBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  transition: background 0.1s;
+  cursor: pointer;
+}
+
+.controlBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.closeBtn:hover {
+  background: #e81123 !important;
+}
+
+/* --- MAIN LAYOUT (Yan Yana) --- */
+.mainLayout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* --- SOL NAVİGASYON (Side Bar) --- */
+.sideBar {
+  display: flex;
+  flex-direction: column;
+  width: 80px;
+  height: 100%;
+  background: var(--color-bg-primary);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 10px 0;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.navItem {
+  position: relative;
+  background: transparent;
+  border: none;
+  color: #909296;
+  height: 64px;
+  /* Düğme yüksekliği */
+  cursor: pointer;
+  border-radius: 8px;
+  margin: 0 8px;
+  /* Kenarlardan boşluk */
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  /* İkon ve yazı arası boşluk */
+}
+
+.navItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.navItem.active {
+  color: #fff;
+  background: rgba(92, 124, 250, 0.12);
+  /* Hafif mavi arka plan */
+}
+
+/* Sol kenardaki mavi aktif çizgisi */
+.activeIndicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 24px;
+  width: 3px;
+  background-color: #5c7cfa;
+  border-radius: 0 3px 3px 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.navItem.active .activeIndicator {
+  opacity: 1;
+}
+
+.icon {
+  margin-top: 4px;
+}
+
+.label {
+  font-size: 11px;
+  /* Küçük ve kibar yazı */
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* --- SAĞ İÇERİK --- */
+.contentWrapper {
+  flex: 1;
+  overflow: hidden;
+  padding: 16px;
+  background-color: var(--color-bg-secondary);
+}
+
+.viewWrapper {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.placeholderText {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #5c5f66;
+}
+
+/* Scrollbar Tasarımı */
+.viewWrapper::-webkit-scrollbar {
+  width: 4px;
+}
+
+.viewWrapper::-webkit-scrollbar-thumb {
+  background: #2c2e33;
+  border-radius: 10px;
+}
+
+/* --- COMING SOON --- */
+.comingSoon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 100%;
+  color: #5c5f66;
+  user-select: none;
+}
+
+.comingSoonIcon {
+  opacity: 0.35;
+  margin-bottom: 4px;
+}
+
+.comingSoonTitle {
+  font-size: 17px;
+  font-weight: 600;
+  color: #6b6e75;
+  letter-spacing: 0.02em;
+}
+
+.comingSoonSub {
+  font-size: 12px;
+  color: #484a4f;
+}

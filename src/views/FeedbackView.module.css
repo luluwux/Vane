@@ -1,0 +1,127 @@
+.container {
+  padding: 24px 32px;
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  margin-bottom: 8px;
+}
+
+.title {
+  margin: 0 0 4px 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: #f1f3f5;
+  letter-spacing: -0.3px;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: #adb5bd;
+  line-height: 1.5;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: rgba(33, 37, 41, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  background: rgba(33, 37, 41, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.iconWrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.discordIcon {
+  background: rgba(88, 101, 242, 0.15);
+  color: #5865F2;
+}
+
+.githubIcon {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f8f9fa;
+}
+
+.serverIcon {
+  background: rgba(88, 101, 242, 0.15);
+  color: #5865F2;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f1f3f5;
+  margin: 0 0 2px 0;
+}
+
+.cardSubtitle {
+  font-size: 12px;
+  color: #868e96;
+  margin: 0;
+}
+
+.actionBtn {
+  margin-top: auto;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f1f3f5;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.actionBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.discordBtn:hover {
+  background: #5865F2;
+  border-color: #5865F2;
+  color: white;
+}
+
+.serverBtn:hover {
+  background: #5865F2;
+  border-color: #5865F2;
+  color: white;
+}

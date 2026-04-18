@@ -1,0 +1,79 @@
+/* ==========================================================================
+   Design Tokens — Vane
+   Tüm renkler, boşluklar ve efektler buradan yönetilir.
+   ========================================================================== */
+
+:root {
+  /* Background */
+  --color-bg-primary: #18181b;
+  --color-bg-secondary: #070709;
+  --color-bg-card: #18181b;
+  --color-bg-card-hover: #18182a;
+  --color-bg-input: #1a1a28;
+
+  /* Accent — Purple */
+  --color-accent: #8B5CF6;
+  --color-accent-light: #a78bfa;
+  --color-accent-dim: rgba(139, 92, 246, 0.15);
+  --color-accent-glow: rgba(139, 92, 246, 0.35);
+
+  /* Semantic */
+  --color-success: #10b981;
+  --color-success-dim: rgba(16, 185, 129, 0.15);
+  --color-warning: #f59e0b;
+  --color-warning-dim: rgba(245, 158, 11, 0.15);
+  --color-error: #ef4444;
+  --color-error-dim: rgba(239, 68, 68, 0.15);
+
+  /* Text */
+  --color-text-primary: #f4f4f8;
+  --color-text-secondary: #919191;
+  --color-text-muted: #55556a;
+
+  /* Borders */
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border-accent: rgba(139, 92, 246, 0.3);
+
+  /* Border Radius */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Spacing (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Typography */
+  --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+
+  /* Shadows & Glows */
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 40px rgba(139, 92, 246, 0.35);
+  --shadow-glow-sm: 0 0 20px rgba(139, 92, 246, 0.2);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+
+  /* Window drag region */
+  --titlebar-height: 36px;
+}

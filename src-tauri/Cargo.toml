@@ -1,0 +1,57 @@
+[package]
+name = "vane-dpi"
+version = "0.1.0"
+description = "Vane — Minimal DPI Bypass Application"
+authors = ["Archey Inc"]
+edition = "2021"
+
+[lib]
+name = "vane_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-updater = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-process = "2"
+tauri-plugin-store = "2"
+tauri-plugin-log = "2"
+tauri-plugin-single-instance = "2"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+futures = "0.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+trust-dns-proto = { version = "0.23", default-features = false }
+windows = { version = "0.58", features = ["Win32_UI_WindowsAndMessaging"] }
+minisign-verify = "0.2.5"
+tauri-plugin-dialog = "2.7.0"
+tauri-plugin-fs = "2.5.0"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_Threading",
+    "Win32_System_JobObjects",
+    "Win32_System_Console",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_SystemServices",
+    "Win32_Devices_DeviceAndDriverInstallation",
+    "Win32_Graphics_Gdi"
+] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

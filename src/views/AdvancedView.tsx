@@ -1,0 +1,262 @@
+import { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { Trash2, RotateCcw, RefreshCw } from 'lucide-react';
+import styles from './AdvancedView.module.css';
+
+import {
+  useEngineStore,
+  type AdvancedConfig,
+  DEFAULT_ADVANCED_CONFIG,
+} from '../store/engineStore';
+import { parseArgsToConfig, serializeConfigToArgs } from '../utils/argsParser';
+import { validateImportedPreset } from '../utils/presetValidator';
+import type { Preset } from '../types/engine';
+
+import { PresetDropdown } from '../components/advanced/bars/PresetDropdown';
+import { ImportExportBar } from '../components/advanced/bars/ImportExportBar';
+import { UnsavedBanner } from '../components/advanced/bars/UnsavedBanner';
+import { DpiDesyncCard } from '../components/advanced/cards/DpiDesyncCard';
+import { PacketTrafficCard } from '../components/advanced/cards/PacketTrafficCard';
+import { ProtocolPortsCard } from '../components/advanced/cards/ProtocolPortsCard';
+
+function slugify(text: string) {
+  return text.toString().toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+}
+
+export function AdvancedView() {
+  const {
+    status,
+    activePresetId,
+    presets,
+    advancedConfig,
+    setActivePreset,
+    setAdvancedConfig,
+    resetAdvancedConfig,
+    setAdvancedDirty,
+    upsertPreset,
+    deletePreset,
+    startEngine,
+    stopEngine,
+  } = useEngineStore();
+
+  const isRunning = status.variant === 'running';
+  const [isApplying, setIsApplying] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [isReset, setIsReset] = useState(false);
+  const [profileName, setProfileName] = useState('My Custom Preset');
+
+  const [snapshot, setSnapshot] = useState<AdvancedConfig>(advancedConfig);
+
+  const activePreset = presets.find(p => p.id === activePresetId);
+
+  const handlePresetSelect = async (newId: string) => {
+    setActivePreset(newId);
+    if (isRunning) {
+      await stopEngine();
+      await startEngine(newId);
+    }
+  };
+
+  useEffect(() => {
+    setAdvancedDirty(isDirty);
+  }, [isDirty, setAdvancedDirty]);
+
+  useEffect(() => {
+    return () => { setAdvancedDirty(false); };
+  }, [setAdvancedDirty]);
+
+  useEffect(() => {
+    if (!activePresetId) return;
+    const preset = presets.find(p => p.id === activePresetId);
+    if (!preset?.args) return;
+
+    const parsed = parseArgsToConfig(preset.args);
+    setAdvancedConfig(parsed);
+    setSnapshot(parsed);
+    setIsDirty(false);
+    setProfileName(preset.isCustom ? preset.label : 'My Custom Preset');
+  }, [activePresetId, presets, setAdvancedConfig]);
+
+  const update = <K extends keyof AdvancedConfig>(key: K, value: AdvancedConfig[K]) => {
+    setAdvancedConfig({ [key]: value } as Partial<AdvancedConfig>);
+    if (!isDirty) {
+      setIsDirty(true);
+      if (!activePreset?.isCustom) setProfileName('My Custom Preset');
+    }
+    setIsReset(false);
+  };
+
+  const handleReset = () => {
+    resetAdvancedConfig();
+    setSnapshot(DEFAULT_ADVANCED_CONFIG);
+    setIsDirty(true);
+    setIsReset(true);
+    setProfileName('Default');
+  };
+
+  const handleCancel = () => {
+    setAdvancedConfig(snapshot);
+    setIsDirty(false);
+    setIsReset(false);
+  };
+
+  const buildPreset = (name: string): Preset => ({
+    id: slugify(name),
+    label: name,
+    description: 'Custom configuration created from the Advanced tab.',
+    icon: '⚙️',
+    args: serializeConfigToArgs(advancedConfig),
+    isCustom: true,
+    priority: 10,
+    category: 'custom',
+  });
+
+  const handleSave = async () => {
+    if (!profileName.trim()) return;
+    setIsApplying(true);
+    try {
+      const newPreset = buildPreset(profileName.trim());
+      await invoke('save_custom_preset', { preset: newPreset });
+      upsertPreset(newPreset);
+      setActivePreset(newPreset.id);
+      setSnapshot(advancedConfig);
+      setIsDirty(false);
+      if (isRunning) { await stopEngine(); await startEngine(newPreset.id); }
+    } catch (e) {
+      console.error('Save error:', e);
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!activePresetId || !activePreset?.isCustom) return;
+
+    if (window.confirm(`Are you sure you want to delete the profile '${activePreset.label}'?`)) {
+      setIsApplying(true);
+      try {
+        await deletePreset(activePresetId);
+        setIsDirty(false);
+        setIsReset(false);
+      } catch (err) {
+        console.error('Delete error:', err);
+      } finally {
+        setIsApplying(false);
+      }
+    }
+  };
+
+  const handleExport = async () => {
+    if (!profileName.trim()) return;
+    const preset = buildPreset(profileName.trim());
+    const jsonStr = JSON.stringify(preset, null, 2);
+    
+    try {
+      const filePath = await save({
+        filters: [{
+          name: 'JSON',
+          extensions: ['json']
+        }],
+        defaultPath: `${preset.id}.json`
+      });
+      
+      if (filePath) {
+        await writeTextFile(filePath, jsonStr);
+      }
+    } catch (e) {
+      console.error('Export error:', e);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const rawJson = JSON.parse(event.target?.result as string);
+        const validation = validateImportedPreset(rawJson);
+        if (!validation.ok) {
+          alert(`Invalid or unsafe preset:\n\n${validation.error}`);
+          return;
+        }
+
+        const preset = validation.preset;
+        preset.id = slugify(preset.label || `imported-${Date.now()}`);
+
+        const parsed = parseArgsToConfig(preset.args);
+        setAdvancedConfig(parsed);
+        setProfileName(preset.label);
+
+        await invoke('save_custom_preset', { preset });
+        upsertPreset(preset);
+        setActivePreset(preset.id);
+        setSnapshot(parsed);
+        setIsDirty(false);
+
+        if (isRunning) { await stopEngine(); await startEngine(preset.id); }
+      } catch (err) {
+        console.error('Import error:', err);
+        alert('Failed to read the file. Please select a valid JSON preset.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const c = advancedConfig;
+
+  return (
+    <div className={styles.view}>
+      <div className={styles.headerRow}>
+        <div className={styles.titleArea}>
+          <h2 className={styles.title}>Advanced Settings</h2>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <PresetDropdown activePresetId={activePresetId} presets={presets} onSelect={handlePresetSelect} />
+
+          {isApplying && <RefreshCw size={18} className={styles.spin} color="#5c7cfa" />}
+          
+          {activePreset?.isCustom && activePreset.id !== 'default' && !isDirty && (
+            <button className={styles.actionBtn} onClick={handleDelete} title="Delete this profile" style={{ color: '#ff6b6b', borderColor: 'rgba(255, 107, 107, 0.2)' }}>
+              <Trash2 size={16} />
+            </button>
+          )}
+          
+          <button className={styles.actionBtn} onClick={handleReset} title="Reset to Defaults">
+            <RotateCcw size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className={styles.groups}>
+        <DpiDesyncCard config={c} update={update} />
+        <PacketTrafficCard config={c} update={update} />
+        <ProtocolPortsCard config={c} update={update} />
+      </div>
+
+      <ImportExportBar 
+        onExport={handleExport} 
+        onImport={handleFileChange} 
+        exportDisabled={!profileName.trim()} 
+      />
+
+      <UnsavedBanner 
+        isDirty={isDirty} 
+        isReset={isReset} 
+        isApplying={isApplying} 
+        profileName={profileName} 
+        setProfileName={setProfileName} 
+        onCancel={handleCancel} 
+        onSave={handleSave} 
+      />
+    </div>
+  );
+}

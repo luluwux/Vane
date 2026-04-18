@@ -1,0 +1,6 @@
+.view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--space-4) var(--space-4) var(--space-4)
+}
