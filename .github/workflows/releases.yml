@@ -13,7 +13,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Clone Zapret Repository
         run: git clone --depth 1 https://github.com/bol-van/zapret.git zapret-src
 
@@ -35,7 +34,6 @@ jobs:
         run: |
           mkdir -p src-tauri/binaries
           cp zapret-src/binaries/winws/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -56,5 +54,5 @@ jobs:
           tagName: v__VERSION__ 
           releaseName: "Vane Release v__VERSION__"
           releaseBody: "Vane Otomatik Production Build. Archey Agency tarafından sağlanmıştır."
-          releaseDraft: true
+          releaseDraft: true 
           prerelease: false
