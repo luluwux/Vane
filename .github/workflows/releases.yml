@@ -1,0 +1,60 @@
+name: "Archey Vane: Production Release"
+
+on:
+  push:
+    tags:
+      - 'v*' 
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone Zapret Repository
+        run: git clone --depth 1 https://github.com/bol-van/zapret.git zapret-src
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: base-devel mingw-w64-x86_64-toolchain git make
+
+      - name: Compile winws
+        shell: msys2 {0}
+        run: |
+          cd zapret-src
+          export WINDIVERT_VERSION=2.2.2-A
+          make -C tpws winws
+
+      - name: Prepare Binaries
+        run: |
+          mkdir -p src-tauri/binaries
+          cp zapret-src/binaries/winws/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build and Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__ 
+          releaseName: "Vane Release v__VERSION__"
+          releaseBody: "Vane Otomatik Production Build. Archey Agency tarafından sağlanmıştır."
+          releaseDraft: true
+          prerelease: false
