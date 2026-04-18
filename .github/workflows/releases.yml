@@ -14,29 +14,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Clone Zapret Repository
-        run: git clone --depth 1 https://github.com/bol-van/zapret.git zapret-src
-
-      - name: Setup MSYS2 (Native Windows Build)
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          # WinDivert kütüphanelerini indirebilmesi için unzip ve curl de eklendi
-          install: base-devel mingw-w64-x86_64-toolchain git make unzip curl
-
-      - name: Compile winws
-        shell: msys2 {0}
-        run: |
-          cd zapret-src/nfq
-          export WINDIVERT_VERSION=2.2.2-A
-          make winws
-
-      - name: Prepare Binaries
+      - name: Fetch Official Zapret Binaries
         shell: bash
         run: |
+          # Zapret reposunu indiriyoruz ama DERLEMİYORUZ.
+          git clone --depth 1 https://github.com/bol-van/zapret.git zapret-src
+          
+          # Doğrudan bol-van'ın kendi derlediği resmi winws.exe'yi alıp projeye kopyalıyoruz.
           mkdir -p src-tauri/binaries
-          cp zapret-src/nfq/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
+          cp zapret-src/binaries/winws/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
