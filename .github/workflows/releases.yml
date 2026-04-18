@@ -27,14 +27,14 @@ jobs:
       - name: Compile winws
         shell: msys2 {0}
         run: |
-          cd zapret-src
+          cd zapret-src/nfq
           export WINDIVERT_VERSION=2.2.2-A
-          make -C tpws winws
+          make
 
       - name: Prepare Binaries
         run: |
           mkdir -p src-tauri/binaries
-          cp zapret-src/binaries/winws/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
+          cp zapret-src/nfq/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
