@@ -17,23 +17,25 @@ jobs:
       - name: Clone Zapret Repository
         run: git clone --depth 1 https://github.com/bol-van/zapret.git zapret-src
 
-      - name: Setup Cygwin
-        uses: egor-tensin/setup-cygwin@v4
+      - name: Setup MSYS2 (Native Windows Build)
+        uses: msys2/setup-msys2@v2
         with:
-          packages: make gcc-core zlib-devel git
+          msystem: MINGW64
+          update: true
+          install: base-devel mingw-w64-x86_64-toolchain git make
 
       - name: Compile winws
-        shell: cmd
+        shell: msys2 {0}
         run: |
-          C:\cygwin64\bin\bash.exe --login -c "cd $(cygpath '${{ github.workspace }}')/zapret-src/winws && make"
+          cd zapret-src/winws
+          export WINDIVERT_VERSION=2.2.2-A
+          make
 
       - name: Prepare Binaries
         shell: bash
         run: |
           mkdir -p src-tauri/binaries
           cp zapret-src/winws/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
-          cp /c/cygwin64/bin/cygwin1.dll src-tauri/binaries/cygwin1.dll
-          cp /c/cygwin64/bin/zlib1.dll src-tauri/binaries/zlib1.dll || echo "zlib1.dll not found, might be statically linked"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -43,6 +45,11 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache (Build Speed Optimization)
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
       - name: Install Dependencies
         run: npm install
