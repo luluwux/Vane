@@ -3,7 +3,7 @@ name: "Archey Vane: Production Release"
 on:
   push:
     tags:
-      - 'v*' 
+      - 'v*'
 
 jobs:
   release:
@@ -25,15 +25,14 @@ jobs:
       - name: Compile winws
         shell: cmd
         run: |
-          C:\cygwin64\bin\bash.exe --login -c "cd $(cygpath '${{ github.workspace }}')/zapret-src/nfq && make"
+          C:\cygwin64\bin\bash.exe --login -c "cd $(cygpath '${{ github.workspace }}')/zapret-src/winws && make"
 
       - name: Prepare Binaries
         shell: bash
         run: |
           mkdir -p src-tauri/binaries
-          cp zapret-src/nfq/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
+          cp zapret-src/winws/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
           cp /c/cygwin64/bin/cygwin1.dll src-tauri/binaries/cygwin1.dll
-          # zlib1.dll is usually required for winws
           cp /c/cygwin64/bin/zlib1.dll src-tauri/binaries/zlib1.dll || echo "zlib1.dll not found, might be statically linked"
 
       - name: Setup Node.js
@@ -53,8 +52,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__ 
+          tagName: v__VERSION__
           releaseName: "Vane Release v__VERSION__"
           releaseBody: "Vane Otomatik Production Build. Archey Agency tarafından sağlanmıştır."
-          releaseDraft: true 
+          releaseDraft: true
           prerelease: false
