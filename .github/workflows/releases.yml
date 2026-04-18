@@ -18,23 +18,23 @@ jobs:
         run: git clone --depth 1 https://github.com/bol-van/zapret.git zapret-src
 
       - name: Setup Cygwin
-        uses: cygwin/cygwin-install-action@v5
+        uses: egor-tensin/setup-cygwin@v4
         with:
-          packages: make,gcc-core,zlib-devel,git
+          packages: make gcc-core zlib-devel git
 
       - name: Compile winws
         shell: cmd
         run: |
-          C:\cygwin\bin\bash.exe --login -c "cd $(cygpath '${{ github.workspace }}')/zapret-src/nfq && make"
+          C:\cygwin64\bin\bash.exe --login -c "cd $(cygpath '${{ github.workspace }}')/zapret-src/nfq && make"
 
       - name: Prepare Binaries
         shell: bash
         run: |
           mkdir -p src-tauri/binaries
           cp zapret-src/nfq/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
-          cp /c/cygwin/bin/cygwin1.dll src-tauri/binaries/cygwin1.dll
+          cp /c/cygwin64/bin/cygwin1.dll src-tauri/binaries/cygwin1.dll
           # zlib1.dll is usually required for winws
-          cp /c/cygwin/bin/zlib1.dll src-tauri/binaries/zlib1.dll || echo "zlib1.dll not found, might be statically linked"
+          cp /c/cygwin64/bin/zlib1.dll src-tauri/binaries/zlib1.dll || echo "zlib1.dll not found, might be statically linked"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
