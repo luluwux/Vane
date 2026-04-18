@@ -22,20 +22,21 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: base-devel mingw-w64-x86_64-toolchain git make
+          # WinDivert kütüphanelerini indirebilmesi için unzip ve curl de eklendi
+          install: base-devel mingw-w64-x86_64-toolchain git make unzip curl
 
       - name: Compile winws
         shell: msys2 {0}
         run: |
-          cd zapret-src/winws
+          cd zapret-src/nfq
           export WINDIVERT_VERSION=2.2.2-A
-          make
+          make winws
 
       - name: Prepare Binaries
         shell: bash
         run: |
           mkdir -p src-tauri/binaries
-          cp zapret-src/winws/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
+          cp zapret-src/nfq/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
