@@ -111,12 +111,12 @@ impl EngineManager {
                 Some(j)
             }
             Err(e) => {
-                /* 
-                   Graceful degradation: Job Objects are best-effort.
-                   The RAII Drop on ProcessHandle still handles normal shutdown. 
-                */
-                tracing::warn!("Job Object atanamadı (graceful degradation): {}", e);
-                None
+                tracing::error!("Job Object atanamadı, motor başlatılmıyor: {}", e);
+                // Attempt to kill child since we failed to guard it
+                let _ = child.start_kill();
+                return Err(EngineError::IoError(
+                    format!("Kernel-level process guard (Job Object) oluşturulamadı: {}. Güvenlik gereksinimi karşılanamadı.", e)
+                ));
             }
         };
 
@@ -128,11 +128,15 @@ impl EngineManager {
 
         let app_clone = app.clone();
         
-        // Stdout task
+        // Stdout and Stderr sharing the same async mechanism is possible,
+        // but isolated loops are simpler. Let's buffer locally per block.
         tauri::async_runtime::spawn(async move {
             use tokio::io::AsyncReadExt;
-            let mut buf = [0u8; 512];
+            let mut buf = [0u8; 1024];
             let mut current_line = String::new();
+            let mut batch = Vec::new();
+            let mut last_flush = std::time::Instant::now();
+            let flush_interval = std::time::Duration::from_millis(200);
             
             while let Ok(n) = stdout.read(&mut buf).await {
                 if n == 0 { break; } // EOF
@@ -140,27 +144,37 @@ impl EngineManager {
                 for c in text.chars() {
                     if c == '\n' || c == '\r' {
                         if !current_line.is_empty() {
-                            tracing::debug!("winws stdout: {}", current_line);
-                            let _ = app_clone.emit("log_line", current_line.clone());
+                            batch.push(current_line.clone());
                             current_line.clear();
                         }
                     } else {
                         current_line.push(c);
                     }
                 }
+                
+                if !batch.is_empty() && (last_flush.elapsed() >= flush_interval || batch.len() >= 50) {
+                    let _ = app_clone.emit("log_batch", &batch);
+                    batch.clear();
+                    last_flush = std::time::Instant::now();
+                }
             }
             if !current_line.is_empty() {
-                let _ = app_clone.emit("log_line", current_line);
+                batch.push(current_line);
+            }
+            if !batch.is_empty() {
+                let _ = app_clone.emit("log_batch", batch);
             }
         });
 
         let app_clone2 = app.clone();
         
-        // Stderr task
         tauri::async_runtime::spawn(async move {
             use tokio::io::AsyncReadExt;
-            let mut buf = [0u8; 512];
+            let mut buf = [0u8; 1024];
             let mut current_line = String::new();
+            let mut batch = Vec::new();
+            let mut last_flush = std::time::Instant::now();
+            let flush_interval = std::time::Duration::from_millis(200);
             
             while let Ok(n) = stderr.read(&mut buf).await {
                 if n == 0 { break; } // EOF
@@ -168,14 +182,24 @@ impl EngineManager {
                 for c in text.chars() {
                     if c == '\n' || c == '\r' {
                         if !current_line.is_empty() {
-                            tracing::warn!("winws stderr: {}", current_line);
-                            let _ = app_clone2.emit("log_line", format!("HATA: {}", current_line));
+                            batch.push(format!("HATA: {}", current_line));
                             current_line.clear();
                         }
                     } else {
                         current_line.push(c);
                     }
                 }
+                if !batch.is_empty() && (last_flush.elapsed() >= flush_interval || batch.len() >= 50) {
+                    let _ = app_clone2.emit("log_batch", &batch);
+                    batch.clear();
+                    last_flush = std::time::Instant::now();
+                }
+            }
+            if !current_line.is_empty() {
+                batch.push(format!("HATA: {}", current_line));
+            }
+            if !batch.is_empty() {
+                let _ = app_clone2.emit("log_batch", batch);
             }
         });
 

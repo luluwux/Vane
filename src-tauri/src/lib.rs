@@ -583,6 +583,29 @@ fn kill_existing_winws() {
     }
 }
 
+fn cleanup_stale_windivert() {
+    tracing::info!("Startup cleanup: Checking for stale WinDivert services...");
+    let result = std::process::Command::new("sc")
+        .args(["query", "WinDivert"])
+        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .output();
+
+    match result {
+        Ok(out) if out.status.success() => {
+            let output_str = String::from_utf8_lossy(&out.stdout);
+            // If it exists but is not running correctly, wiping it forces a clean reinstall.
+            if output_str.contains("STOPPED") || output_str.contains("START_PENDING") || output_str.contains("STOP_PENDING") {
+                tracing::info!("Stale WinDivert service found. Disposing...");
+                let _ = std::process::Command::new("sc")
+                    .args(["delete", "WinDivert"])
+                    .creation_flags(0x08000000)
+                    .output();
+            }
+        }
+        _ => tracing::debug!("No stale WinDivert service found (normal)."),
+    }
+}
+
 pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -611,6 +634,7 @@ pub fn run() {
         .setup(|app| {
             // Clean up dangling processes from previous runs
             kill_existing_winws();
+            cleanup_stale_windivert();
 
             // ─── Feature 6B: Event-driven network watcher ─────────────────
 /* 
@@ -618,7 +642,9 @@ pub fn run() {
    WM_DEVICECHANGE fires immediately on adapter changes -> zero CPU overhead. 
 */
             let watcher_handle = app.handle().clone();
-            spawn_network_watcher(watcher_handle);
+            if let Err(e) = spawn_network_watcher(watcher_handle) {
+                tracing::warn!("Network watcher could not start: {}", e);
+            }
 
             // WinDivert automatically applies its filters to new adapters transparently without needing a restart.
             // Therefore, we just log the event. Frontend DNS/Network UI can listen to `network_changed` directly.

@@ -143,6 +143,7 @@ interface EngineStore {
   resetAdvancedConfig: () => void;
   setAdvancedDirty: (dirty: boolean) => void;
   appendLog: (content: string, level?: LogLine['level']) => void;
+  appendLogs: (entries: { content: string, level: LogLine['level'] }[]) => void;
   clearLogs: () => void;
   setActiveTab: (tab: AppTab) => void;
   setHealthCheckTargets: (targets: string[]) => void;
@@ -216,6 +217,16 @@ export const useEngineStore = create<EngineStore>()(
           level,
         };
         return { logs: [newLine, ...state.logs].slice(0, 500) };
+      }),
+      appendLogs: (entries) => set((state) => {
+        const newLines = entries.map(e => ({
+          id: String(++logCounter),
+          timestamp: new Date(),
+          content: e.content,
+          level: e.level,
+        })).reverse(); // En yeni log en üstte (index 0) olsun diye.
+        
+        return { logs: [...newLines, ...state.logs].slice(0, 500) };
       }),
 
       setDnsProviders: (dnsProviders) => set({ dnsProviders }),

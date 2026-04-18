@@ -9,11 +9,12 @@
 /// registers interest in device interface changes (covers all NICs).
 /// DBT_DEVICEARRIVAL and DBT_DEVICEREMOVECOMPLETE trigger the "network_changed" event.
 #[cfg(target_os = "windows")]
-pub fn spawn_network_watcher(app: tauri::AppHandle) {
+pub fn spawn_network_watcher(app: tauri::AppHandle) -> Result<(), String> {
     std::thread::Builder::new()
         .name("vane-net-watcher".into())
         .spawn(move || run_message_loop(app))
-        .expect("Network watcher thread could not be started");
+        .map(|_| ())
+        .map_err(|e| format!("Network watcher thread could not be started: {}", e))
 }
 
 // Thread-local storage for the AppHandle inside the WndProc.
@@ -23,6 +24,8 @@ pub fn spawn_network_watcher(app: tauri::AppHandle) {
 std::thread_local! {
     static APP_HANDLE: std::cell::RefCell<Option<tauri::AppHandle>> =
         const { std::cell::RefCell::new(None) };
+    static LAST_EVENT_TIME: std::cell::Cell<Option<std::time::Instant>> =
+        const { std::cell::Cell::new(None) };
 }
 
 #[cfg(target_os = "windows")]
@@ -146,11 +149,18 @@ unsafe extern "system" fn wnd_proc(
         if event_type == DBT_DEVICEARRIVAL || event_type == DBT_DEVICEREMOVECOMPLETE {
             APP_HANDLE.with(|cell| {
                 if let Some(app) = cell.borrow().as_ref() {
-                    tracing::info!(
-                        "WM_DEVICECHANGE: Network change detected (event=0x{:X}).",
-                        event_type
-                    );
-                    let _ = app.emit("network_changed", ());
+                    let now = std::time::Instant::now();
+                    LAST_EVENT_TIME.with(|last_time_cell| {
+                        let last = last_time_cell.get();
+                        if last.map_or(true, |t| now.duration_since(t) > std::time::Duration::from_millis(500)) {
+                            last_time_cell.set(Some(now));
+                            tracing::info!(
+                                "WM_DEVICECHANGE: Network change detected (event=0x{:X}).",
+                                event_type
+                            );
+                            let _ = app.emit("network_changed", ());
+                        }
+                    });
                 }
             });
         }
@@ -161,4 +171,4 @@ unsafe extern "system" fn wnd_proc(
 
 /// No-op for non-Windows targets.
 #[cfg(not(target_os = "windows"))]
-pub fn spawn_network_watcher(_app: tauri::AppHandle) {}
+pub fn spawn_network_watcher(_app: tauri::AppHandle) -> Result<(), String> { Ok(()) }

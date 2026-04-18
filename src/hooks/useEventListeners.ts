@@ -9,7 +9,7 @@ import type { EngineStatus } from '../types/engine';
    The cleanup function unregisters all listeners on unmount to prevent leaks. 
 */
 export function useEventListeners(): void {
-  const { appendLog, setStatus, refreshDnsStatus, refreshPresets, startEngine } = useEngineStore();
+  const { appendLog, appendLogs, setStatus, refreshDnsStatus, refreshPresets, startEngine } = useEngineStore();
 
   useEffect(() => {
     let isMounted = true;
@@ -27,9 +27,14 @@ export function useEventListeners(): void {
       }
     };
 
-    // winws stdout/stderr lines forwarded from the backend
-    register<string>('log_line', (content) => {
-      appendLog(content, classifyLogLevel(content));
+    // winws stdout/stderr lines forwarded from the backend in batches
+    register<string[]>('log_batch', (lines) => {
+      if (lines.length === 0) return;
+      const entries = lines.map(line => ({
+        content: line,
+        level: classifyLogLevel(line)
+      }));
+      appendLogs(entries);
     });
 
     // Engine lifecycle changes (stopped / starting / running / error)
@@ -63,7 +68,7 @@ export function useEventListeners(): void {
       cleanupFns.forEach((fn) => fn());
     };
   // Zustand action references are stable — safe to list as deps
-  }, [appendLog, setStatus, refreshDnsStatus, refreshPresets, startEngine]);
+  }, [appendLog, appendLogs, setStatus, refreshDnsStatus, refreshPresets, startEngine]);
 }
 
 // Infers a log level from the message content.

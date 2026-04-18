@@ -101,6 +101,8 @@ async fn run_forwarder_loop(
     shutdown: Arc<AtomicBool>,
 ) {
     let mut buf = vec![0u8; 512]; // Standard DNS UDP max payload
+    const MAX_CONCURRENT_DNS_REQUESTS: usize = 100;
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_DNS_REQUESTS));
 
     loop {
         if shutdown.load(Ordering::SeqCst) {
@@ -122,13 +124,20 @@ async fn run_forwarder_loop(
             Err(_) => continue, // timeout — loop back for shutdown check
         };
 
-        let query_bytes = buf[..len].to_vec();
+        let query_bytes = bytes::Bytes::copy_from_slice(&buf[..len]);
         let socket_clone = Arc::clone(&socket);
         let client_clone = client.clone();
+        let semaphore_clone = Arc::clone(&semaphore);
+
+        let Ok(permit) = semaphore_clone.try_acquire_owned() else {
+            tracing::warn!("DoH forwarder: concurrency limit reached, dropping query from {}", client_addr);
+            continue;
+        };
 
         // Handle each DNS query concurrently — multiple clients can query simultaneously.
         tokio::spawn(async move {
-            if let Some(response) = proxy_dns_query(&client_clone, endpoint_url, &query_bytes).await {
+            let _permit = permit; // RAII: drop at end of request
+            if let Some(response) = proxy_dns_query(&client_clone, endpoint_url, query_bytes).await {
                 if let Err(e) = socket_clone.send_to(&response, client_addr).await {
                     tracing::warn!("DoH Forwarder send hatası → {}: {}", client_addr, e);
                 }
@@ -144,10 +153,10 @@ async fn run_forwarder_loop(
 async fn proxy_dns_query(
     client: &reqwest::Client,
     endpoint_url: &str,
-    query_bytes: &[u8],
-) -> Option<Vec<u8>> {
+    query_bytes: bytes::Bytes,
+) -> Option<bytes::Bytes> {
     // Validate incoming bytes early — prevents forwarding garbage to DoH.
-    let _parsed = Message::from_bytes(query_bytes)
+    let _parsed = Message::from_bytes(&query_bytes)
         .map_err(|e| tracing::warn!("Geçersiz DNS sorgusu alındı: {}", e))
         .ok()?;
 
@@ -156,7 +165,7 @@ async fn proxy_dns_query(
         .post(endpoint_url)
         .header("Content-Type", "application/dns-message")
         .header("Accept", "application/dns-message")
-        .body(query_bytes.to_vec())
+        .body(query_bytes)
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
@@ -168,14 +177,14 @@ async fn proxy_dns_query(
         return None;
     }
 
-    let bytes = response.bytes().await
+    let response_bytes = response.bytes().await
         .map_err(|e| tracing::warn!("DoH yanıt okuma hatası: {}", e))
         .ok()?;
 
     // Validate response before sending to client.
-    let _reply = Message::from_bytes(&bytes)
+    let _reply = Message::from_bytes(&response_bytes)
         .map_err(|e| tracing::warn!("DoH yanıtı parse edilemedi: {}", e))
         .ok()?;
 
-    Some(bytes.to_vec())
+    Some(response_bytes)
 }
