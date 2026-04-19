@@ -14,15 +14,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Fetch Official Zapret Binaries
-        shell: bash
-        run: |
-          # Zapret reposunu indiriyoruz ama DERLEMİYORUZ.
-          git clone --depth 1 https://github.com/bol-van/zapret.git zapret-src
-          
-          # Doğrudan bol-van'ın kendi derlediği resmi winws.exe'yi alıp projeye kopyalıyoruz.
-          mkdir -p src-tauri/binaries
-          cp zapret-src/binaries/winws/winws.exe src-tauri/binaries/winws-x86_64-pc-windows-msvc.exe
+      # DİKKAT: Zapret indirme veya derleme adımı tamamen silindi!
+      # Sistem doğrudan senin reponda (src-tauri/binaries/) duran 
+      # güvenli ve onaylanmış winws.exe dosyasını kullanacak.
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
