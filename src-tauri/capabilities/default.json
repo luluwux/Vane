@@ -26,6 +26,7 @@
       ]
     },
     "shell:allow-kill",
+    "shell:allow-open",
     "process:default",
     "process:allow-exit",
     "store:allow-get",

@@ -84,7 +84,7 @@ export function HomeView() {
     if (!geoFetched.current) {
       geoFetched.current = true;
 
-      fetch('https://ip-api.com/json/?fields=status,query,isp,org,city,country')
+      fetch('http://ip-api.com/json/?fields=status,query,isp,org,city,country')
         .then((res) => res.json())
         .then((data) => {
           // ip-api başarısız döndüğünde (ör. rate limit) status: 'fail' olur
