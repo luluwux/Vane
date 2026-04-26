@@ -57,7 +57,7 @@
   },
   "plugins": {
     "shell": {
-      "open": false
+      "open": "^https://"
     },
     "updater": {
       "endpoints": [
