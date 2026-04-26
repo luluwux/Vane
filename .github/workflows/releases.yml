@@ -46,8 +46,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__
-          releaseName: "Vane Release v__VERSION__"
+          tagName: ${{ github.ref_name }}
+          releaseName: "Vane ${{ github.ref_name }}"
           releaseBody: "Vane Otomatik Production Build. Archey Agency tarafından sağlanmıştır."
-          releaseDraft: true
-          prerelease: false
+          releaseDraft: false
+          prerelease: true
