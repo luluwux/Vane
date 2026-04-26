@@ -9,7 +9,7 @@ import type { EngineStatus } from '../types/engine';
    The cleanup function unregisters all listeners on unmount to prevent leaks. 
 */
 export function useEventListeners(): void {
-  const { appendLog, appendLogs, setStatus, refreshDnsStatus, refreshPresets, startEngine } = useEngineStore();
+  const { appendLog, appendLogs, setStatus, refreshDnsStatus, refreshPresets } = useEngineStore();
 
   useEffect(() => {
     let isMounted = true;
