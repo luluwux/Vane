@@ -84,17 +84,17 @@ export function HomeView() {
     if (!geoFetched.current) {
       geoFetched.current = true;
 
-      fetch('http://ip-api.com/json/?fields=status,query,isp,org,city,country')
+      fetch('https://ipwho.is/')
         .then((res) => res.json())
         .then((data) => {
-          // ip-api başarısız döndüğünde (ör. rate limit) status: 'fail' olur
-          if (data.status === 'fail') {
+          // ipwho.is başarısız döndüğünde success: false olur
+          if (data.success === false) {
             setGeoData({ query: 'Unavailable', isp: null, org: null, city: null, country: null });
           } else {
             setGeoData({
-              query: data.query ?? 'N/A',
-              isp: data.isp || null,
-              org: data.org || null,
+              query: data.ip ?? 'N/A',
+              isp: data.connection?.isp || null,
+              org: data.connection?.org || null,
               city: data.city || null,
               country: data.country || null,
             });
