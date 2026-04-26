@@ -101,7 +101,7 @@ To add a new preset, create a PR there. Once merged and signed, all Vane clients
 - **UI/UX:** Archey Agency Design Team.
 - **Framework:** [Tauri](https://tauri.app/).
 
-Vane is released under the **MIT License**. Use responsibly.
+Vane is released under the **GPL-3.0 license**. Use responsibly.
 
 
 ## 🌟 Support
