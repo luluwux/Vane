@@ -17,7 +17,7 @@ const MAX_ARG_COUNT: usize = 30;
 const MAX_ARG_LEN: usize = 128;
 
 /* 
-   Allowlist of argument prefixes accepted by winws.exe.
+   Allowlist of argument prefixes accepted by winws.exe & nfqws.
    Any argument not matching at least one prefix is rejected. 
 */
 const ALLOWED_PREFIXES: &[&str] = &[
@@ -26,6 +26,23 @@ const ALLOWED_PREFIXES: &[&str] = &[
     "--filter-udp=",
     "--wf-tcp=",
     "--wf-udp=",
+
+    // Windows WinDivert capture flags (CRITICAL: without this all Windows presets fail)
+    "--windivert=",
+    "--windivert",
+
+    // WinDivert filter expression tokens (e.g. "tcp.DstPort==443", "udp.DstPort==443")
+    "tcp.",
+    "udp.",
+    "icmp.",
+
+    // Linux nfqueue capture flag
+    "--qnum=",
+
+    // Whitelist / Hostlist flags
+    "--wl=",
+    "--hostlist=",
+
     // DPI desynchronisation flags
     "--dpi-desync=",
     "--dpi-desync-split-pos=",
@@ -35,10 +52,12 @@ const ALLOWED_PREFIXES: &[&str] = &[
     "--dpi-desync-cutoff=",
     "--dpi-desync-any-protocol",
     "--dpi-desync-autottl",
+
     // Packet parameters
     "--mss=",
     "--new-ttl=",
     "--max-payload=",
+
     // Verbosity (read-only, no side effects)
     "--debug",
     "--debug2",
@@ -116,7 +135,7 @@ fn validate_single_arg(arg: &str) -> Result<(), EngineError> {
     if !is_allowed {
         return Err(EngineError::InvalidPreset(format!(
             "Tanınmayan argüman reddedildi: \"{}\". \
-             Yalnızca bilinen winws parametreleri kabul edilir.",
+             Yalnızca bilinen winws/nfqws parametreleri kabul edilir.",
             sanitize_for_log(arg)
         )));
     }
@@ -149,6 +168,9 @@ mod tests {
             "--dpi-desync-autottl".to_string(),
             "--mss=1300".to_string(),
             "--filter-tcp=80".to_string(),
+            "--windivert".to_string(),
+            "tcp.DstPort==443".to_string(),
+            "--qnum=200".to_string(),
         ];
         assert!(validate_preset_args(&args).is_ok());
     }
