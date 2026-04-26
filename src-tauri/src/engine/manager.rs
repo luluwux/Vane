@@ -215,6 +215,8 @@ impl EngineManager {
                 }
             }
 
+            c.stdout = Some(reader.into_inner());
+
             (c, None)
         };
 
