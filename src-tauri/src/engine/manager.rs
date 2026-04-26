@@ -176,60 +176,69 @@ impl EngineManager {
         let prepared_args = Self::prepare_args(&preset.args);
 
         #[cfg(target_os = "linux")]
-        {
-            if let Err(e) = Self::ensure_linux_capabilities(&winws_path) {
-                self.set_status(EngineStatus::Error { message: e.to_string(), code: Some("CAP_ERROR".into()) }, dispatcher);
-                return Err(e);
+        let (mut child, route_guard): (tokio::process::Child, Option<crate::network::router::NetworkRouteGuard>) = {
+            let binary_path_str = winws_path.to_string_lossy();
+            let args_str = prepared_args.join(" ");
+            
+            let script = format!(
+                "iptables -t mangle -I OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 200 || exit 1; \
+                 \"{}\" {} & ENGINE_PID=$!; \
+                 echo \"READY:$ENGINE_PID\"; \
+                 cat > /dev/null; \
+                 kill $ENGINE_PID; \
+                 iptables -t mangle -D OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 200",
+                binary_path_str, args_str
+            );
+
+            let mut root_cmd = std::process::Command::new("pkexec");
+            root_cmd.args(["sh", "-c", &script])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+
+            let mut c = tokio::process::Command::from(root_cmd).spawn().map_err(|e| {
+                EngineError::SpawnFailed(format!("Linux Root Wrapper başlatılamadı: {}", e))
+            })?;
+
+            let stdout = c.stdout.take().ok_or_else(|| EngineError::IoError("Stdout alınamadı".into()))?;
+            let mut reader = tokio::io::BufReader::new(stdout);
+            let mut line = String::new();
+            use tokio::io::AsyncBufReadExt;
+            
+            match tauri::async_runtime::block_on(reader.read_line(&mut line)) {
+                Ok(n) if n > 0 && line.trim().starts_with("READY") => {
+                    tracing::info!("Linux Root Wrapper aktif: {}", line.trim());
+                }
+                _ => {
+                    let _ = c.start_kill();
+                    return Err(EngineError::AuthorizationFailed("Yetki reddedildi veya script hatası.".into()));
+                }
             }
-        }
 
-        let mut command = std::process::Command::new(&winws_path);
-        command.args(&prepared_args)
-            .current_dir(working_dir)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-
-        #[cfg(target_os = "windows")]
-        {
-            use std::os::windows::process::CommandExt;
-            command.creation_flags(CREATE_NO_WINDOW);
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            use std::os::unix::process::CommandExt;
-            unsafe {
-                command.pre_exec(|| {
-                    libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL);
-                    Ok(())
-                });
-            }
-        }
-
-        #[cfg(target_os = "linux")]
-        let route_guard = match crate::network::router::NetworkRouteGuard::new(200) {
-            Ok(guard) => Some(guard),
-            Err(e) => {
-                self.set_status(EngineStatus::Error { message: e.to_string(), code: Some(e.code().to_string()) }, dispatcher);
-                return Err(e);
-            }
+            (c, None)
         };
 
-        let mut child = tokio::process::Command::from(command)
-            .spawn()
-            .map_err(|e| {
+        #[cfg(target_os = "windows")]
+        let (mut child, _route_guard): (tokio::process::Child, Option<bool>) = {
+            let mut command = std::process::Command::new(&winws_path);
+            command.args(&prepared_args)
+                .current_dir(working_dir)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+            
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(CREATE_NO_WINDOW);
+            
+            let c = tokio::process::Command::from(command).spawn().map_err(|e| {
                 tracing::error!("Süreç başlatılamadı: {}", e);
-                self.set_status(EngineStatus::Error { message: format!("Engine spawn hatası: {}", e), code: Some("SPAWN_FAILED".into()) }, dispatcher);
                 EngineError::SpawnFailed(e.to_string())
             })?;
+            (c, None)
+        };
 
         let pid = child.id().unwrap_or(0);
         tracing::info!("Engine başarıyla başlatıldı, PID: {}", pid);
 
-        /* 
-           Assign the child to a Job Object so that if Vane is killed by the OS
-           (e.g., Task Manager), the kernel will terminate winws.exe automatically. 
-        */
         #[cfg(target_os = "windows")]
         let job_guard = match JobObjectGuard::new().and_then(|j| j.assign(pid).map(|_| j)) {
             Ok(j) => {
@@ -238,7 +247,6 @@ impl EngineManager {
             }
             Err(e) => {
                 tracing::error!("Job Object atanamadı, motor başlatılmıyor: {}", e);
-                // Attempt to kill child since we failed to guard it
                 let _ = child.start_kill();
                 let _ = tauri::async_runtime::block_on(child.wait());
                 self.set_status(EngineStatus::Error { message: "Job Object oluşturulamadı".into(), code: Some("JOB_OBJECT_ERROR".into()) }, dispatcher);
@@ -247,6 +255,9 @@ impl EngineManager {
                 ));
             }
         };
+
+        #[cfg(target_os = "linux")]
+        let job_guard = None;
 
         let stdout = child.stdout.take()
             .ok_or_else(|| EngineError::IoError("stdout pipe oluşturulamadı (OS pipe limiti?)".into()))?;

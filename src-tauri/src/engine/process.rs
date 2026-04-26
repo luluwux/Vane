@@ -92,23 +92,23 @@ impl ProcessHandle {
             let _ = child.start_kill();
         }
 
-        // On non-Windows targets, send SIGTERM and await gracefully.
+        // On non-Windows targets (Linux Root Wrapper case), close stdin to trigger cleanup.
         #[cfg(not(target_os = "windows"))]
         {
-            unsafe {
-                libc::kill(self.pid as i32, libc::SIGTERM);
-            }
-
             let mut child = child;
+            // Stdin'i kapatmak, script içindeki `cat > /dev/null` komutunu sonlandırır 
+            // ve iptables temizlik komutlarının çalışmasını sağlar.
+            drop(child.stdin.take());
+
             let timeout_result = tauri::async_runtime::block_on(async {
                 tokio::time::timeout(std::time::Duration::from_secs(2), child.wait()).await
             });
             
             if timeout_result.is_err() {
-                tracing::warn!("nfqws (PID {}) 2 saniye içinde bitmedi, force kill uygulanıyor.", self.pid);
+                tracing::warn!("Linux Root Wrapper (PID {}) 2 saniye içinde bitmedi, force kill uygulanıyor.", self.pid);
                 let _ = child.start_kill();
             } else {
-                tracing::info!("nfqws (PID {}) graceful shutdown başarıyla tamamlandı.", self.pid);
+                tracing::info!("Linux Root Wrapper (PID {}) temizlik yaparak başarıyla kapandı.", self.pid);
             }
         }
     }
@@ -135,9 +135,16 @@ impl ProcessHandle {
 impl Drop for ProcessHandle {
     fn drop(&mut self) {
         if let Some(mut child) = self.child.take() {
+            #[cfg(target_os = "linux")]
+            {
+                // Stdin'i kapat, scriptin temizlik yapmasına izin ver (max 500ms bekle)
+                drop(child.stdin.take());
+                let _ = tauri::async_runtime::block_on(async {
+                    tokio::time::timeout(std::time::Duration::from_millis(500), child.wait()).await
+                });
+            }
             let _ = child.start_kill();
-            tracing::debug!("ProcessHandle::drop — winws force-killed.");
+            tracing::debug!("ProcessHandle::drop — engine terminated.");
         }
-        // _job_guard drops here → kernel terminates all assigned children.
     }
 }
