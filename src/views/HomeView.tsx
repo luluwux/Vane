@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useEngineStore } from '../store/engineStore';
-import { Shield, RefreshCw, Wifi, Activity, Plus, X } from 'lucide-react';
+import { Shield, RefreshCw, Wifi, Activity, Plus, X, Download } from 'lucide-react';
 import styles from './HomeView.module.css';
 
 type UnlistenFn = () => void;
@@ -28,13 +28,23 @@ export function HomeView() {
     ? 'Custom DNS'
     : (dnsProviders.find(d => d.id === selectedDnsId)?.name || 'Default');
 
-  const [geoData, setGeoData] = useState({
+  const [geoData, setGeoData] = useState<{
+    query: string;
+    isp: string | null;
+    org: string | null;
+    city: string | null;
+    country: string | null;
+    status?: string;
+  }>({
     query: 'Checking...',
-    isp: 'Looking up...',
-    org: 'Looking up...',
-    city: '...',
-    country: '...',
+    isp: null,
+    org: null,
+    city: null,
+    country: null,
   });
+
+  // Güncelleme bildirim state'i
+  const [updateInfo, setUpdateInfo] = useState<{ version: string; body: string | null } | null>(null);
   const [sysInfo, setSysInfo] = useState({ device_model: 'Windows Desktop', os: 'windows' });
   const [showIp, setShowIp] = useState(false);
 
@@ -74,14 +84,34 @@ export function HomeView() {
     if (!geoFetched.current) {
       geoFetched.current = true;
 
-      fetch('https://ip-api.com/json/')
+      fetch('https://ip-api.com/json/?fields=status,query,isp,org,city,country')
         .then((res) => res.json())
-        .then((data) => setGeoData(data))
-        .catch(() => setGeoData((prev) => ({ ...prev, query: 'Error' })));
+        .then((data) => {
+          // ip-api başarısız döndüğünde (ör. rate limit) status: 'fail' olur
+          if (data.status === 'fail') {
+            setGeoData({ query: 'Unavailable', isp: null, org: null, city: null, country: null });
+          } else {
+            setGeoData({
+              query: data.query ?? 'N/A',
+              isp: data.isp || null,
+              org: data.org || null,
+              city: data.city || null,
+              country: data.country || null,
+            });
+          }
+        })
+        .catch(() => setGeoData({ query: 'Error', isp: null, org: null, city: null, country: null }));
 
       invoke<{ device_model: string; os: string }>('get_system_info')
         .then((info) => setSysInfo(info))
         .catch(() => { });
+
+      // Açılışta güncelleme kontrolü (tek seferlik, kullanıcıyı bloklamaz)
+      invoke<{ version: string; body: string | null } | null>('check_for_updates')
+        .then((info) => {
+          if (info) setUpdateInfo(info);
+        })
+        .catch(() => { /* sessizce geç */ });
     }
 
     // Query auto-start status and privilege level
@@ -147,8 +177,60 @@ export function HomeView() {
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+  const handleInstallUpdate = async () => {
+    try {
+      await invoke('install_update');
+    } catch (e) {
+      console.error('Güncelleme yüklenemedi:', e);
+    }
+  };
+
   return (
     <div className={styles.view}>
+      {/* ─── Güncelleme Bildirim Banner'ı ─────────────────────────── */}
+      {updateInfo && (
+        <div style={{
+          background: 'linear-gradient(90deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15))',
+          border: '1px solid rgba(99,102,241,0.4)',
+          borderRadius: 8,
+          padding: '7px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+          marginBottom: 4,
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#a5b4fc' }}>
+            <Download size={12} />
+            Yeni sürüm mevcut: <strong style={{ color: '#c7d2fe' }}>v{updateInfo.version}</strong>
+          </span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={handleInstallUpdate}
+              style={{
+                padding: '2px 10px',
+                fontSize: 11,
+                fontWeight: 600,
+                borderRadius: 5,
+                border: 'none',
+                cursor: 'pointer',
+                background: 'rgba(99,102,241,0.35)',
+                color: '#c7d2fe',
+                transition: 'all 0.15s',
+              }}
+            >
+              Güncelle
+            </button>
+            <button
+              onClick={() => setUpdateInfo(null)}
+              style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              title="Kapat"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        </div>
+      )}
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -167,15 +249,23 @@ export function HomeView() {
         </div>
         <div className={styles.infoRow}>
           <span>ISP name:</span>
-          <span className={styles.truncate}>{geoData.isp}</span>
+          <span className={styles.truncate} style={{ color: geoData.isp ? undefined : 'rgba(255,255,255,0.3)', fontStyle: geoData.isp ? undefined : 'italic' }}>
+            {geoData.isp ?? 'N/A'}
+          </span>
         </div>
         <div className={styles.infoRow}>
           <span>Org:</span>
-          <span className={styles.truncate}>{geoData.org}</span>
+          <span className={styles.truncate} style={{ color: geoData.org ? undefined : 'rgba(255,255,255,0.3)', fontStyle: geoData.org ? undefined : 'italic' }}>
+            {geoData.org ?? 'N/A'}
+          </span>
         </div>
         <div className={styles.infoRow}>
           <span>Location:</span>
-          <span>{geoData.city}, {geoData.country}</span>
+          <span style={{ color: (geoData.city || geoData.country) ? undefined : 'rgba(255,255,255,0.3)', fontStyle: (geoData.city || geoData.country) ? undefined : 'italic' }}>
+            {(geoData.city && geoData.country)
+              ? `${geoData.city}, ${geoData.country}`
+              : (geoData.city || geoData.country || 'N/A')}
+          </span>
         </div>
         <div className={styles.infoRow}>
           <span>Active DNS:</span>

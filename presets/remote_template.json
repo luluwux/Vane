@@ -1,0 +1,157 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-04-26",
+  "presets": [
+    {
+      "id": "default",
+      "label": "Default",
+      "description": "The most ideal and stable DPI bypass rule using automated TTL and Fake packet injection.",
+      "icon": "💎",
+      "args": [
+        "--wf-tcp=80,443",
+        "--wf-udp=443",
+        "--dpi-desync=fake,multidisorder",
+        "--dpi-desync-split-pos=1",
+        "--dpi-desync-fooling=badseq",
+        "--dpi-desync-any-protocol",
+        "--dpi-desync-cutoff=d3",
+        "--dpi-desync-autottl"
+      ],
+      "isCustom": false,
+      "priority": 1,
+      "category": "standard"
+    },
+    {
+      "id": "aggressive-ttl",
+      "label": "Aggressive TTL Strict",
+      "description": "Designed for highly restrictive networks requiring low-TTL deception techniques.",
+      "icon": "⚔️",
+      "args": [
+        "--wf-tcp=80,443",
+        "--dpi-desync=fake",
+        "--dpi-desync-ttl=5",
+        "--dpi-desync-fooling=badseq"
+      ],
+      "isCustom": false,
+      "priority": 2,
+      "category": "desyncFake"
+    },
+    {
+      "id": "standard-split",
+      "label": "Standard Split",
+      "description": "Classic and reliable Split method for standard DPI architectures.",
+      "icon": "🛡️",
+      "args": [
+        "--wf-tcp=80,443",
+        "--dpi-desync=split2",
+        "--dpi-desync-split-pos=2"
+      ],
+      "isCustom": false,
+      "priority": 1,
+      "category": "standard"
+    },
+    {
+      "id": "youtube-quic",
+      "label": "YouTube & QUIC Focus",
+      "description": "Specifically targets UDP 443 to accelerate and unblock YouTube/Google QUIC services.",
+      "icon": "▶️",
+      "args": [
+        "--wf-udp=443",
+        "--dpi-desync=fake",
+        "--dpi-desync-autottl"
+      ],
+      "isCustom": false,
+      "priority": 1,
+      "category": "quic"
+    },
+    {
+      "id": "discord-voip",
+      "label": "Discord & VoIP Fix",
+      "description": "Optimizes high-range UDP ports (50000-65535) used by VoIP and Discord RTC.",
+      "icon": "🎤",
+      "args": [
+        "--wf-udp=50000-65535",
+        "--dpi-desync=fake",
+        "--dpi-desync-any-protocol",
+        "--dpi-desync-cutoff=d3"
+      ],
+      "isCustom": false,
+      "priority": 1,
+      "category": "aggressive"
+    },
+    {
+      "id": "deep-fragmentation",
+      "label": "Deep Fragmentation",
+      "description": "Breaks packets into tiny fragments (Syndata) to completely hide SNI headers.",
+      "icon": "🧩",
+      "args": [
+        "--wf-tcp=443",
+        "--dpi-desync=syndata",
+        "--dpi-desync-fooling=md5sig",
+        "--dpi-desync-split-pos=1"
+      ],
+      "isCustom": false,
+      "priority": 2,
+      "category": "fragment"
+    },
+    {
+      "id": "heavy-censorship",
+      "label": "Heavy Censorship Evasion",
+      "description": "Intense packet manipulation utilizing 6 repeats for severely restricted access locations.",
+      "icon": "🔥",
+      "args": [
+        "--wf-tcp=80,443",
+        "--dpi-desync=fake",
+        "--dpi-desync-repeats=6",
+        "--dpi-desync-any-protocol",
+        "--dpi-desync-cutoff=d3"
+      ],
+      "isCustom": false,
+      "priority": 2,
+      "category": "aggressive"
+    },
+    {
+      "id": "lightweight-gaming",
+      "label": "Lightweight Gaming",
+      "description": "Minimal DPI manipulation utilizing basic split offsets to preserve gaming ping.",
+      "icon": "🎮",
+      "args": [
+        "--wf-tcp=443",
+        "--dpi-desync=split",
+        "--dpi-desync-split-pos=1"
+      ],
+      "isCustom": false,
+      "priority": 1,
+      "category": "desync"
+    },
+    {
+      "id": "oob-advanced",
+      "label": "Out-of-Band (OOB)",
+      "description": "Saturates firewall sensors using OOB desync signals.",
+      "icon": "🛸",
+      "args": [
+        "--wf-tcp=443",
+        "--dpi-desync=oob",
+        "--dpi-desync-split-pos=1"
+      ],
+      "isCustom": false,
+      "priority": 3,
+      "category": "desyncFake"
+    },
+    {
+      "id": "https-sni-ghost",
+      "label": "HTTPS SNI Ghost",
+      "description": "Targets only TCP 443 with a blend of fake and syndata for maximum web browsing speed.",
+      "icon": "👻",
+      "args": [
+        "--wf-tcp=443",
+        "--dpi-desync=fake,syndata",
+        "--dpi-desync-autottl",
+        "--dpi-desync-fooling=md5sig"
+      ],
+      "isCustom": false,
+      "priority": 1,
+      "category": "fragment"
+    }
+  ]
+}

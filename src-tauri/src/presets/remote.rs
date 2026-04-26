@@ -4,16 +4,18 @@ use crate::config::preset::Preset;
 use minisign_verify::{PublicKey, Signature};
 
 /// The remote URL serving the dynamic presets manifest.
+/// Points to the raw presets.json in the luluwux/Vane-Presets GitHub repository.
 pub const REMOTE_PRESETS_URL: &str =
-    "https://gist.githubusercontent.com/YOUR_USERNAME/YOUR_GIST_ID/raw/presets.json";
+    "https://raw.githubusercontent.com/luluwux/Vane-Presets/main/presets.json";
 
-/// The signature URL (Minisign ed25519 signature of the presets.json file)
+/// The signature URL (Minisign ed25519 signature of the presets.json file).
+/// Will be used once a signing pipeline is set up in the presets repo.
 pub const REMOTE_PRESETS_SIG_URL: &str =
-    "https://gist.githubusercontent.com/YOUR_USERNAME/YOUR_GIST_ID/raw/presets.json.sig";
+    "https://raw.githubusercontent.com/luluwux/Vane-Presets/main/presets.json.minisig";
 
 /// Embedded Minisign public key for verifying the remote JSON.
-/// In production, generate securely and replace this.
-pub const MANIFEST_PUBLIC_KEY: &str = "RWQYOUR_MINISIGN_PUBLIC_KEY_HERE";
+/// Set to empty string to indicate signature verification is not yet active.
+pub const MANIFEST_PUBLIC_KEY: &str = "";
 
 /// The manifest fetched from the remote endpoint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,43 +73,53 @@ pub async fn fetch_remote_presets(
     };
 
     // ─── CVE-5: Minisign ED25519 Verification ───
-    let sig_response = match client
-        .get(REMOTE_PRESETS_SIG_URL)
-        .timeout(std::time::Duration::from_secs(3))
-        .send()
-        .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            tracing::error!("Signature fetch failed (Network or file missing): {}", e);
+    // If MANIFEST_PUBLIC_KEY is empty, signature verification is disabled (setup pending).
+    // Once a signing pipeline is configured for the presets repo, set the key to enable.
+    if !MANIFEST_PUBLIC_KEY.is_empty() {
+        let sig_response = match client
+            .get(REMOTE_PRESETS_SIG_URL)
+            .timeout(std::time::Duration::from_secs(3))
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!("Signature fetch failed (Network or file missing): {}", e);
+                return RemoteFetchOutcome::SignatureInvalid;
+            }
+        };
+
+        let sig_text = match sig_response.text().await {
+            Ok(t) => t,
+            Err(_) => return RemoteFetchOutcome::SignatureInvalid,
+        };
+
+        let pub_key = match PublicKey::from_base64(MANIFEST_PUBLIC_KEY) {
+            Ok(k) => k,
+            Err(e) => {
+                tracing::error!("Embedded public key is invalid: {}", e);
+                return RemoteFetchOutcome::SignatureInvalid;
+            }
+        };
+
+        let signature = match Signature::decode(&sig_text) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("Signature file (sig) could not be parsed: {}", e);
+                return RemoteFetchOutcome::SignatureInvalid;
+            }
+        };
+
+        if let Err(e) = pub_key.verify(text.as_bytes(), &signature, false) {
+            tracing::error!(
+                "CRITICAL WARNING (CVE-5): Presets JSON signature verification failed! Tampering detected: {}",
+                e
+            );
             return RemoteFetchOutcome::SignatureInvalid;
         }
-    };
-
-    let sig_text = match sig_response.text().await {
-        Ok(t) => t,
-        Err(_) => return RemoteFetchOutcome::SignatureInvalid,
-    };
-
-    let pub_key = match PublicKey::from_base64(MANIFEST_PUBLIC_KEY) {
-        Ok(k) => k,
-        Err(e) => {
-            tracing::error!("Embedded public key is invalid: {}", e);
-            return RemoteFetchOutcome::SignatureInvalid;
-        }
-    };
-
-    let signature = match Signature::decode(&sig_text) {
-        Ok(s) => s,
-        Err(e) => {
-            tracing::error!("Signature file (sig) could not be parsed: {}", e);
-            return RemoteFetchOutcome::SignatureInvalid;
-        }
-    };
-
-    if let Err(e) = pub_key.verify(text.as_bytes(), &signature, false) {
-        tracing::error!("CRITICAL WARNING (CVE-5): Gist JSON signature verification failed! Tampering detected: {}", e);
-        return RemoteFetchOutcome::SignatureInvalid;
+        tracing::debug!("Remote presets signature verification passed.");
+    } else {
+        tracing::warn!("Remote presets signature verification is DISABLED (MANIFEST_PUBLIC_KEY not set).");
     }
     // ────────────────────────────────────────────
 
