@@ -30,6 +30,26 @@ pub enum EngineError {
 
     #[error("Binary bulunamadı: {0}")]
     BinaryNotFound(String),
+
+    #[error("Yetki hatası: {0}")]
+    AuthorizationFailed(String),
+}
+
+impl EngineError {
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::InsufficientPrivileges => "INSUFFICIENT_PRIVILEGES",
+            Self::AlreadyRunning => "ALREADY_RUNNING",
+            Self::NotRunning => "NOT_RUNNING",
+            Self::InvalidPreset(_) => "INVALID_PRESET",
+            Self::InvalidId(_) => "INVALID_ID",
+            Self::SpawnFailed(_) => "SPAWN_FAILED",
+            Self::ConfigParseError(_) => "CONFIG_PARSE_ERROR",
+            Self::IoError(_) => "IO_ERROR",
+            Self::BinaryNotFound(_) => "BINARY_NOT_FOUND",
+            Self::AuthorizationFailed(_) => "AUTHORIZATION_FAILED",
+        }
+    }
 }
 
 impl From<std::io::Error> for EngineError {
@@ -38,11 +58,21 @@ impl From<std::io::Error> for EngineError {
     }
 }
 
+#[derive(serde::Serialize)]
+struct ErrorPayload {
+    code: String,
+    message: String,
+}
+
 impl serde::Serialize for EngineError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.to_string())
+        let payload = ErrorPayload {
+            code: self.code().to_string(),
+            message: self.to_string(),
+        };
+        payload.serialize(serializer)
     }
 }

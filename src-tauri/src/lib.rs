@@ -618,6 +618,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             tracing::warn!("Second Vane instance detected — bringing window to front.");
             if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
             }
@@ -729,6 +730,14 @@ pub fn run() {
                         screen_size.height.saturating_sub(h).saturating_sub(margin_y),
                     );
                     let _ = main_win.set_position(pos);
+                }
+
+                let args: Vec<String> = std::env::args().collect();
+                let is_autostart = args.iter().any(|arg| arg == "--autostart" || arg == "--minimized");
+                
+                if !is_autostart {
+                    let _ = main_win.show();
+                    let _ = main_win.set_focus();
                 }
             }
 

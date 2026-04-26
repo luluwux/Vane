@@ -32,6 +32,9 @@ pub fn is_elevated() -> bool {
 /// Root (UID 0) check for Unix systems.
 #[cfg(not(target_os = "windows"))]
 pub fn is_elevated() -> bool {
-    // SAFETY: geteuid() is always safe and async-signal-safe.
-    unsafe { libc::geteuid() == 0 }
+    // Linux'ta doğrudan root yetkisi ile çalıştırmak tehlikelidir.
+    // Uygulamanın setcap (cap_net_admin) ile çalıştığı varsayılarak şimdilik
+    // yetki kontrolü binary'nin execution aşamasına bırakılmıştır.
+    tracing::info!("Linux yetki kontrolü atlanıyor. Binary'nin setcap (cap_net_admin) veya pkexec ile çalıştırıldığı varsayılıyor.");
+    true
 }

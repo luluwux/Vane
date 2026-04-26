@@ -4,6 +4,7 @@ pub mod manager;
 pub mod process;
 pub mod optimizer;
 pub mod sanitizer;
+pub mod logger;
 
 pub use manager::{EngineManager, EngineStatus};
 pub use error::EngineError;

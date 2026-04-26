@@ -10,6 +10,7 @@ use crate::privilege::checker::is_elevated;
 #[cfg(target_os = "windows")]
 use crate::engine::job::JobObjectGuard;
 
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 // Enum representing engine status.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
@@ -18,7 +19,31 @@ pub enum EngineStatus {
     Stopped,
     Starting,
     Running { pid: u32 },
-    Error { message: String },
+    Error { 
+        message: String, 
+        #[serde(skip_serializing_if = "Option::is_none")]
+        code: Option<String> 
+    },
+}
+
+pub trait EngineEventDispatcher: Send + Sync {
+    fn emit_log_batch(&self, batch: Vec<String>);
+    fn emit_status(&self, status: &EngineStatus);
+    fn resolve_path(&self, path: &str, base: tauri::path::BaseDirectory) -> Result<std::path::PathBuf, tauri::Error>;
+}
+
+impl EngineEventDispatcher for AppHandle {
+    fn emit_log_batch(&self, batch: Vec<String>) {
+        let _ = self.emit("log_batch", batch);
+    }
+
+    fn emit_status(&self, status: &EngineStatus) {
+        let _ = self.emit("engine_status", status);
+    }
+    
+    fn resolve_path(&self, path: &str, base: tauri::path::BaseDirectory) -> Result<std::path::PathBuf, tauri::Error> {
+        self.path().resolve(path, base)
+    }
 }
 
 pub struct EngineManager {
@@ -35,10 +60,10 @@ impl EngineManager {
     }
 
     // Safely resolves binary path from Resource along with its DLLs
-    fn resolve_binary_path(app: &AppHandle) -> Result<std::path::PathBuf, EngineError> {
-        let path = app
-            .path()
-            .resolve("binaries/winws-x86_64-pc-windows-msvc.exe", tauri::path::BaseDirectory::Resource)
+    #[cfg(target_os = "windows")]
+    fn resolve_binary_path(dispatcher: &impl EngineEventDispatcher) -> Result<std::path::PathBuf, EngineError> {
+        let path = dispatcher
+            .resolve_path("binaries/winws-x86_64-pc-windows-msvc.exe", tauri::path::BaseDirectory::Resource)
             .map_err(|e| EngineError::BinaryNotFound(format!("Tauri Path resolve hatası: {}", e)))?;
             
         if !path.exists() {
@@ -50,7 +75,60 @@ impl EngineManager {
         Ok(path)
     }
 
-    pub fn start(&self, preset: &Preset, app: &AppHandle) -> Result<(), EngineError> {
+    // Safely resolves binary path for Linux (nfqws)
+    #[cfg(target_os = "linux")]
+    fn resolve_binary_path(dispatcher: &impl EngineEventDispatcher) -> Result<std::path::PathBuf, EngineError> {
+        let path = dispatcher
+            .resolve_path("binaries/nfqws-x86_64-unknown-linux-gnu", tauri::path::BaseDirectory::Resource)
+            .map_err(|e| EngineError::BinaryNotFound(format!("Tauri Path resolve hatası: {}", e)))?;
+            
+        if !path.exists() {
+            return Err(EngineError::BinaryNotFound(
+                format!("nfqws bulunamadı. Lütfen binaries klasörünün bozulmadığına emin olun. Aranan Yol: {}", path.display())
+            ));
+        }
+        
+        Ok(path)
+    }
+
+    // Argüman Çeviricisi: Windows argümanlarını Linux için optimize eder
+    #[cfg(target_os = "windows")]
+    fn prepare_args(preset_args: &[String]) -> Vec<String> {
+        preset_args.to_vec()
+    }
+
+    #[cfg(target_os = "linux")]
+    fn prepare_args(preset_args: &[String]) -> Vec<String> {
+        let mut final_args = Vec::new();
+        let mut skip_next = false;
+        
+        for arg in preset_args {
+            if skip_next {
+                skip_next = false;
+                continue;
+            }
+            
+            // Eğer argüman --windivert=... formatındaysa
+            if arg.starts_with("--windivert=") {
+                continue;
+            }
+
+            // Eğer argüman `--windivert` ise ve değer hemen arkasından geliyorsa
+            if arg == "--windivert" {
+                skip_next = true;
+                continue;
+            }
+
+            final_args.push(arg.clone());
+        }
+        
+        // nfqws'in dinleyeceği kuyruk numarasını (Faz 3 ile aynı numara) ekle
+        final_args.push("--qnum=200".to_string());
+        
+        final_args
+    }
+
+    pub fn start<D: EngineEventDispatcher + Clone + 'static>(&self, preset: &Preset, dispatcher: &D) -> Result<(), EngineError> {
         if !is_elevated() {
             return Err(EngineError::InsufficientPrivileges);
         }
@@ -64,15 +142,19 @@ impl EngineManager {
 
         {
             let process_lock = self.process.lock()
-                .map_err(|_| EngineError::IoError("Process lock zehirlendi".into()))?;
+                .map_err(|_| {
+                    tracing::error!("Process lock zehirlendi. Kritik durum.");
+                    self.set_status(EngineStatus::Error { message: "Internal Error: State poisoned".into(), code: None }, dispatcher);
+                    EngineError::IoError("Process lock zehirlendi".into())
+                })?;
             if process_lock.is_some() {
                 return Err(EngineError::AlreadyRunning);
             }
         }
 
-        self.set_status(EngineStatus::Starting, app);
+        self.set_status(EngineStatus::Starting, dispatcher);
 
-        let winws_path = Self::resolve_binary_path(app)?;
+        let winws_path = Self::resolve_binary_path(dispatcher)?;
 
         /* 
            Setting up the working directory is critical for DLL resolution.
@@ -83,17 +165,45 @@ impl EngineManager {
                 format!("Binary path'in parent klasörü alınamadı: {:?}", winws_path)
             ))?;
 
-        let mut child = tokio::process::Command::new(&winws_path)
-            .args(&preset.args)
+        let prepared_args = Self::prepare_args(&preset.args);
+
+        let mut command = std::process::Command::new(&winws_path);
+        command.args(&prepared_args)
             .current_dir(working_dir)
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            // CREATE_NO_WINDOW
-            .creation_flags(0x08000000)
+            .stderr(Stdio::piped());
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            use std::os::unix::process::CommandExt;
+            unsafe {
+                command.pre_exec(|| {
+                    libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL);
+                    Ok(())
+                });
+            }
+        }
+
+        #[cfg(target_os = "linux")]
+        let route_guard = match crate::network::router::NetworkRouteGuard::new(200) {
+            Ok(guard) => Some(guard),
+            Err(e) => {
+                self.set_status(EngineStatus::Error { message: e.to_string(), code: Some(e.code().to_string()) }, dispatcher);
+                return Err(e);
+            }
+        };
+
+        let mut child = tokio::process::Command::from(command)
             .spawn()
             .map_err(|e| {
                 tracing::error!("Süreç başlatılamadı: {}", e);
-                self.set_status(EngineStatus::Error { message: format!("Engine spawn hatası: {}", e) }, app);
+                self.set_status(EngineStatus::Error { message: format!("Engine spawn hatası: {}", e), code: Some("SPAWN_FAILED".into()) }, dispatcher);
                 EngineError::SpawnFailed(e.to_string())
             })?;
 
@@ -114,116 +224,54 @@ impl EngineManager {
                 tracing::error!("Job Object atanamadı, motor başlatılmıyor: {}", e);
                 // Attempt to kill child since we failed to guard it
                 let _ = child.start_kill();
+                let _ = tauri::async_runtime::block_on(child.wait());
+                self.set_status(EngineStatus::Error { message: "Job Object oluşturulamadı".into(), code: Some("JOB_OBJECT_ERROR".into()) }, dispatcher);
                 return Err(EngineError::IoError(
                     format!("Kernel-level process guard (Job Object) oluşturulamadı: {}. Güvenlik gereksinimi karşılanamadı.", e)
                 ));
             }
         };
 
-
-        let mut stdout = child.stdout.take()
+        let stdout = child.stdout.take()
             .ok_or_else(|| EngineError::IoError("stdout pipe oluşturulamadı (OS pipe limiti?)".into()))?;
-        let mut stderr = child.stderr.take()
+        let stderr = child.stderr.take()
             .ok_or_else(|| EngineError::IoError("stderr pipe oluşturulamadı (OS pipe limiti?)".into()))?;
 
-        let app_clone = app.clone();
+        let dispatcher_clone1 = dispatcher.clone();
+        let dispatcher_clone2 = dispatcher.clone();
         
-        // Stdout and Stderr sharing the same async mechanism is possible,
-        // but isolated loops are simpler. Let's buffer locally per block.
-        tauri::async_runtime::spawn(async move {
-            use tokio::io::AsyncReadExt;
-            let mut buf = [0u8; 1024];
-            let mut current_line = String::new();
-            let mut batch = Vec::new();
-            let mut last_flush = std::time::Instant::now();
-            let flush_interval = std::time::Duration::from_millis(200);
-            
-            while let Ok(n) = stdout.read(&mut buf).await {
-                if n == 0 { break; } // EOF
-                let text = String::from_utf8_lossy(&buf[..n]);
-                for c in text.chars() {
-                    if c == '\n' || c == '\r' {
-                        if !current_line.is_empty() {
-                            batch.push(current_line.clone());
-                            current_line.clear();
-                        }
-                    } else {
-                        current_line.push(c);
-                    }
-                }
-                
-                if !batch.is_empty() && (last_flush.elapsed() >= flush_interval || batch.len() >= 50) {
-                    let _ = app_clone.emit("log_batch", &batch);
-                    batch.clear();
-                    last_flush = std::time::Instant::now();
-                }
-            }
-            if !current_line.is_empty() {
-                batch.push(current_line);
-            }
-            if !batch.is_empty() {
-                let _ = app_clone.emit("log_batch", batch);
-            }
-        });
-
-        let app_clone2 = app.clone();
-        
-        tauri::async_runtime::spawn(async move {
-            use tokio::io::AsyncReadExt;
-            let mut buf = [0u8; 1024];
-            let mut current_line = String::new();
-            let mut batch = Vec::new();
-            let mut last_flush = std::time::Instant::now();
-            let flush_interval = std::time::Duration::from_millis(200);
-            
-            while let Ok(n) = stderr.read(&mut buf).await {
-                if n == 0 { break; } // EOF
-                let text = String::from_utf8_lossy(&buf[..n]);
-                for c in text.chars() {
-                    if c == '\n' || c == '\r' {
-                        if !current_line.is_empty() {
-                            batch.push(format!("HATA: {}", current_line));
-                            current_line.clear();
-                        }
-                    } else {
-                        current_line.push(c);
-                    }
-                }
-                if !batch.is_empty() && (last_flush.elapsed() >= flush_interval || batch.len() >= 50) {
-                    let _ = app_clone2.emit("log_batch", &batch);
-                    batch.clear();
-                    last_flush = std::time::Instant::now();
-                }
-            }
-            if !current_line.is_empty() {
-                batch.push(format!("HATA: {}", current_line));
-            }
-            if !batch.is_empty() {
-                let _ = app_clone2.emit("log_batch", batch);
-            }
-        });
+        crate::engine::logger::spawn_log_reader(stdout, dispatcher_clone1, None);
+        crate::engine::logger::spawn_log_reader(stderr, dispatcher_clone2, Some("HATA: "));
 
         #[cfg(target_os = "windows")]
         let handle = ProcessHandle::new(child, pid, job_guard);
-        #[cfg(not(target_os = "windows"))]
-        let handle = ProcessHandle::new(child, pid);
+        #[cfg(target_os = "linux")]
+        let handle = ProcessHandle::new(child, pid, route_guard);
 
 
         {
             let mut process_lock = self.process.lock()
-                .map_err(|_| EngineError::IoError("Process lock zehirlendi".into()))?;
+                .map_err(|_| {
+                    tracing::error!("Process lock zehirlendi (kaydetme aşaması).");
+                    self.set_status(EngineStatus::Error { message: "Internal Error: State poisoned".into(), code: None }, dispatcher);
+                    EngineError::IoError("Process lock zehirlendi".into())
+                })?;
             *process_lock = Some(handle);
         }
 
-        self.set_status(EngineStatus::Running { pid }, app);
+        self.set_status(EngineStatus::Running { pid }, dispatcher);
         tracing::info!("Engine started: preset='{}', pid={}", preset.id, pid);
 
         Ok(())
     }
 
-    pub fn stop(&self, app: &AppHandle) -> Result<(), EngineError> {
+    pub fn stop(&self, dispatcher: &impl EngineEventDispatcher) -> Result<(), EngineError> {
         let mut process_lock = self.process.lock()
-            .map_err(|_| EngineError::IoError("Process lock zehirlendi".into()))?;
+            .map_err(|_| {
+                tracing::error!("Process lock zehirlendi (durdurma aşaması).");
+                self.set_status(EngineStatus::Error { message: "Internal Error: State poisoned".into(), code: None }, dispatcher);
+                EngineError::IoError("Process lock zehirlendi".into())
+            })?;
 
         let mut handle = process_lock.take().ok_or(EngineError::NotRunning)?;
 
@@ -233,7 +281,7 @@ impl EngineManager {
         */
         handle.kill_graceful();
 
-        self.set_status(EngineStatus::Stopped, app);
+        self.set_status(EngineStatus::Stopped, dispatcher);
         tracing::info!("Engine stopped.");
 
         Ok(())
@@ -246,10 +294,12 @@ impl EngineManager {
             .unwrap_or(EngineStatus::Stopped)
     }
 
-    fn set_status(&self, new_status: EngineStatus, app: &AppHandle) {
+    fn set_status(&self, new_status: EngineStatus, dispatcher: &impl EngineEventDispatcher) {
         if let Ok(mut guard) = self.status.lock() {
             *guard = new_status.clone();
+        } else {
+            tracing::error!("Status lock zehirlendi. Durum güncellenemiyor.");
         }
-        let _ = app.emit("engine_status", &new_status);
+        dispatcher.emit_status(&new_status);
     }
 }

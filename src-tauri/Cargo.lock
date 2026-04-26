@@ -5422,12 +5422,14 @@ checksum = "7ba6f5989077681266825251a52748b8c1d8a4ad098cc37e440103d0ea717fc0"
 
 [[package]]
 name = "vane-dpi"
-version = "0.1.0"
+version = "0.1.0-alpha"
 dependencies = [
  "bytes",
  "futures",
+ "libc",
  "log",
  "minisign-verify",
+ "rand 0.8.5",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

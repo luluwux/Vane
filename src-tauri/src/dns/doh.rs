@@ -123,12 +123,7 @@ async fn resolve_doh_inner(
     Ok(addresses)
 }
 
-/// Generates a pseudo-random DNS message ID using system time.
-/// Avoids pulling in a random number crate for this simple use case.
+/// Generates a pseudo-random DNS message ID using a secure RNG.
 fn rand_id() -> u16 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| (d.subsec_nanos() & 0xFFFF) as u16)
-        .unwrap_or(0x1234)
+    rand::random::<u16>()
 }

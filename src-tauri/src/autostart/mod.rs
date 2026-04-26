@@ -19,7 +19,7 @@ const TASK_NAME: &str = "Vane";
 /// The calling process MUST be elevated (admin). Call `is_elevated()` before this function.
 pub fn enable_autostart(exe_path: &str) -> Result<(), String> {
     // Wrap path in quotes to handle spaces in Program Files, AppData paths, etc.
-    let task_run = format!("\"{}\"", exe_path);
+    let task_run = format!("\"{}\" --autostart", exe_path);
 
     let mut cmd = Command::new("schtasks");
     cmd.args([
@@ -28,7 +28,6 @@ pub fn enable_autostart(exe_path: &str) -> Result<(), String> {
         "/tr", &task_run,
         "/sc", "onlogon",
         "/rl", "highest",
-        "/ru", "",    // Run as current user (not SYSTEM)
         "/f",         // Force overwrite if task already exists
     ]);
 

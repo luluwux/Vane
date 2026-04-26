@@ -9,7 +9,7 @@ export type EngineStatus =
   | { variant: 'stopped' }
   | { variant: 'starting' }
   | { variant: 'running'; pid: number }
-  | { variant: 'error'; message: string };
+  | { variant: 'error'; message: string; code?: string };
 
 export interface Preset {
   id: string;
@@ -273,9 +273,10 @@ export const useEngineStore = create<EngineStore>()(
           } else if (result.variant === 'error') {
             get().appendLog(`Motor hatası: ${result.message}`, 'error');
           }
-        } catch (err) {
-          const errorMsg = String(err);
-          set({ status: { variant: 'error', message: errorMsg } });
+        } catch (err: any) {
+          const errorCode = typeof err === 'object' && err !== null && 'code' in err ? err.code : 'UNKNOWN';
+          const errorMsg = typeof err === 'object' && err !== null && 'message' in err ? err.message : String(err);
+          set({ status: { variant: 'error', message: errorMsg, code: errorCode } });
           get().appendLog(`Başlatma hatası: ${errorMsg}`, 'error');
         }
       },

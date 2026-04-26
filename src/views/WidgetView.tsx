@@ -7,7 +7,9 @@ import { Settings, AlertCircle, GitBranch, X } from 'lucide-react';
 import { useEngineStore } from '../store/engineStore';
 import { UpdateBanner } from '../components/UpdateBanner';
 import { EngineHealthBadge } from '../components/EngineHealthBadge';
+import { Toast } from '../components/Toast/Toast';
 import styles from './WidgetView.module.css';
+import logoUrl from '../assets/logo.png';
 
 export function WidgetView() {
   const {
@@ -20,6 +22,16 @@ export function WidgetView() {
   const isRunning = status.variant === 'running';
   const isStarting = status.variant === 'starting';
   const isError = status.variant === 'error';
+
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status.variant === 'error' && status.code === 'AUTHORIZATION_FAILED') {
+      setAuthError('Yetki verilmediği için yönlendirme başlatılamadı.');
+    } else {
+      setAuthError(null);
+    }
+  }, [status]);
 
   const handleToggle = useCallback(async () => {
     if (isStarting || isActionLoading) return;
@@ -98,7 +110,7 @@ export function WidgetView() {
       {/* ─── Header ─── */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
-          <img src="/logo.png" alt="Vane Logo" className={styles.brandIcon} width={30} height={30} />
+          <img src={logoUrl} alt="Vane Logo" className={styles.brandIcon} width={30} height={30} />
           <div className={styles.brandTexts}>
             <span className={styles.brandName}>Vane</span>
             <span className={styles.alphaBadge}>ALPHA</span>
@@ -173,6 +185,13 @@ export function WidgetView() {
         </div>
 
         <EngineHealthBadge />
+      </div>
+
+      {/* ─── Toast Container ─── */}
+      <div className={styles.toastContainer}>
+        {authError && (
+          <Toast message={authError} type="warning" onDismiss={() => setAuthError(null)} />
+        )}
       </div>
     </div>
   );

@@ -15,6 +15,8 @@ pub struct ProcessHandle {
     pid: u32,
     #[cfg(target_os = "windows")]
     _job_guard: Option<JobObjectGuard>,
+    #[cfg(target_os = "linux")]
+    _route_guard: Option<crate::network::router::NetworkRouteGuard>,
 }
 
 impl ProcessHandle {
@@ -23,12 +25,16 @@ impl ProcessHandle {
         pid: u32,
         #[cfg(target_os = "windows")]
         job_guard: Option<JobObjectGuard>,
+        #[cfg(target_os = "linux")]
+        route_guard: Option<crate::network::router::NetworkRouteGuard>,
     ) -> Self {
         Self {
             child: Some(child),
             pid,
             #[cfg(target_os = "windows")]
             _job_guard: job_guard,
+            #[cfg(target_os = "linux")]
+            _route_guard: route_guard,
         }
     }
 
@@ -86,11 +92,24 @@ impl ProcessHandle {
             let _ = child.start_kill();
         }
 
-        // On non-Windows targets, just force kill immediately.
+        // On non-Windows targets, send SIGTERM and await gracefully.
         #[cfg(not(target_os = "windows"))]
         {
+            unsafe {
+                libc::kill(self.pid as i32, libc::SIGTERM);
+            }
+
             let mut child = child;
-            let _ = child.start_kill();
+            let timeout_result = tauri::async_runtime::block_on(async {
+                tokio::time::timeout(std::time::Duration::from_secs(2), child.wait()).await
+            });
+            
+            if timeout_result.is_err() {
+                tracing::warn!("nfqws (PID {}) 2 saniye içinde bitmedi, force kill uygulanıyor.", self.pid);
+                let _ = child.start_kill();
+            } else {
+                tracing::info!("nfqws (PID {}) graceful shutdown başarıyla tamamlandı.", self.pid);
+            }
         }
     }
 
