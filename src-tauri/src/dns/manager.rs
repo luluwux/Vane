@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "windows")]
 use std::process::Command;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -136,9 +137,55 @@ pub fn get_active_adapters() -> Vec<NetworkAdapter> {
 
 #[cfg(not(target_os = "windows"))]
 pub fn get_active_adapters() -> Vec<NetworkAdapter> {
-    vec![]
+    let mut adapters = vec![];
+    
+    // nmcli -t -f NAME,DEVICE,STATE connection show --active
+    let output = std::process::Command::new("nmcli")
+        .args(["-t", "-f", "NAME,DEVICE,STATE", "connection", "show", "--active"])
+        .output();
+        
+    if let Ok(out) = output {
+        let text = String::from_utf8_lossy(&out.stdout);
+        for line in text.lines() {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() >= 3 && parts[2] == "activated" {
+                let name = parts[0].to_string();
+                let device = parts[1].to_string();
+                
+                let dns_out = std::process::Command::new("nmcli")
+                    .args(["-t", "-f", "IP4.DNS", "device", "show", &device])
+                    .output();
+                    
+                let mut primary = None;
+                let mut secondary = None;
+                
+                if let Ok(d_out) = dns_out {
+                    let d_text = String::from_utf8_lossy(&d_out.stdout);
+                    for d_line in d_text.lines() {
+                        let d_parts: Vec<&str> = d_line.split(':').collect();
+                        if d_parts.len() == 2 {
+                            if primary.is_none() {
+                                primary = Some(d_parts[1].to_string());
+                            } else if secondary.is_none() {
+                                secondary = Some(d_parts[1].to_string());
+                            }
+                        }
+                    }
+                }
+                
+                adapters.push(NetworkAdapter {
+                    name,
+                    current_primary_dns: primary,
+                    current_secondary_dns: secondary,
+                    is_dhcp: false,
+                });
+            }
+        }
+    }
+    adapters
 }
 
+#[cfg(target_os = "windows")]
 fn parse_netsh_config(text: &str) -> Vec<NetworkAdapter> {
     let mut adapters: Vec<NetworkAdapter> = vec![];
     let mut current_name: Option<String> = None;
@@ -280,10 +327,42 @@ pub fn apply_dns(primary: &str, secondary: &str) -> ApplyDnsResult {
     }
 }
 
-// DNS management on Linux is handled via resolv.conf / systemd-resolved — stub for now.
 #[cfg(not(target_os = "windows"))]
-pub fn apply_dns(_primary: &str, _secondary: &str) -> ApplyDnsResult {
-    ApplyDnsResult { success: true, applied_adapters: vec![], error: None }
+pub fn apply_dns(primary: &str, secondary: &str) -> ApplyDnsResult {
+    let adapters = get_active_adapters();
+    if adapters.is_empty() {
+        return ApplyDnsResult {
+            success: false,
+            applied_adapters: vec![],
+            error: Some("nmcli komutu bulunamadı veya aktif ağ bağlantısı yok.".into()),
+        };
+    }
+
+    let mut applied = vec![];
+    let mut last_error = None;
+
+    let dns_string = format!("{} {}", primary, secondary);
+
+    for adapter in &adapters {
+        let mod_res = std::process::Command::new("nmcli")
+            .args(["con", "mod", &adapter.name, "ipv4.dns", &dns_string, "ipv4.ignore-auto-dns", "yes"])
+            .output();
+
+        if mod_res.map(|o| o.status.success()).unwrap_or(false) {
+            let _ = std::process::Command::new("nmcli")
+                .args(["con", "up", &adapter.name])
+                .output();
+            applied.push(adapter.name.clone());
+        } else {
+            last_error = Some(format!("{} adaptörü için nmcli kuralı uygulanamadı.", adapter.name));
+        }
+    }
+
+    ApplyDnsResult {
+        success: !applied.is_empty(),
+        applied_adapters: applied,
+        error: last_error,
+    }
 }
 
 /// Reverts DNS back to DHCP (automatic).
@@ -319,7 +398,27 @@ pub fn reset_dns_to_dhcp() -> ApplyDnsResult {
 
 #[cfg(not(target_os = "windows"))]
 pub fn reset_dns_to_dhcp() -> ApplyDnsResult {
-    ApplyDnsResult { success: true, applied_adapters: vec![], error: None }
+    let adapters = get_active_adapters();
+    let mut applied = vec![];
+
+    for adapter in &adapters {
+        let mod_res = std::process::Command::new("nmcli")
+            .args(["con", "mod", &adapter.name, "ipv4.dns", "", "ipv4.ignore-auto-dns", "no"])
+            .output();
+
+        if mod_res.map(|o| o.status.success()).unwrap_or(false) {
+            let _ = std::process::Command::new("nmcli")
+                .args(["con", "up", &adapter.name])
+                .output();
+            applied.push(adapter.name.clone());
+        }
+    }
+
+    ApplyDnsResult {
+        success: !applied.is_empty(),
+        applied_adapters: applied,
+        error: None,
+    }
 }
 
 /// Checks if the current DNS is a known trusted DNS.
@@ -345,8 +444,23 @@ pub fn is_using_trusted_dns() -> bool {
     false
 }
 
-// On Linux, assume trusted DNS since management is external (e.g., systemd-resolved).
 #[cfg(not(target_os = "windows"))]
 pub fn is_using_trusted_dns() -> bool {
-    true
+    let trusted = [
+        "1.1.1.1", "1.0.0.1",
+        "8.8.8.8", "8.8.4.4",
+        "9.9.9.9", "149.112.112.112",
+        "208.67.222.222", "208.67.220.220",
+        "94.140.14.14", "94.140.15.15",
+    ];
+
+    let adapters = get_active_adapters();
+    for adapter in adapters {
+        if let Some(primary) = &adapter.current_primary_dns {
+            if trusted.contains(&primary.as_str()) {
+                return true;
+            }
+        }
+    }
+    false
 }

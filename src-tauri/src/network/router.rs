@@ -21,15 +21,23 @@ impl NetworkRouteGuard {
             queue_num, queue_num
         );
 
-        let mut child = Command::new("pkexec")
-            .arg("sh")
+        let is_root = unsafe { libc::getuid() == 0 };
+        let mut command = if is_root {
+            Command::new("sh")
+        } else {
+            let mut cmd = Command::new("pkexec");
+            cmd.arg("sh");
+            cmd
+        };
+
+        let mut child = command
             .arg("-c")
             .arg(&script)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| EngineError::SpawnFailed(format!("pkexec başlatılamadı: {}", e)))?;
+            .map_err(|e| EngineError::SpawnFailed(format!("iptables kuralı çalıştırılamadı (pkexec/sh): {}", e)))?;
 
         let stdout = child.stdout.take().ok_or_else(|| {
             EngineError::IoError("pkexec stdout alınamadı".into())

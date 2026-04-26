@@ -6,6 +6,7 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+#[allow(dead_code)]
 const TASK_NAME: &str = "Vane";
 
 #[cfg(target_os = "linux")]

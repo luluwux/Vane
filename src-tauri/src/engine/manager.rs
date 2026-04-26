@@ -10,6 +10,7 @@ use crate::privilege::checker::is_elevated;
 #[cfg(target_os = "windows")]
 use crate::engine::job::JobObjectGuard;
 
+#[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 // Enum representing engine status.
@@ -321,7 +322,7 @@ impl EngineManager {
     #[cfg(target_os = "linux")]
     fn ensure_linux_capabilities(binary_path: &std::path::Path) -> Result<(), EngineError> {
         // Zaten root isek cap ayarlarına gerek yok, her şeyi yapabiliriz.
-        if unsafe { libc::getuid() == 0 } {
+        if is_elevated() {
             return Ok(());
         }
 
