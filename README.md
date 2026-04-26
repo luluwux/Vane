@@ -109,7 +109,6 @@ Vane is released under the **MIT License**. Use responsibly.
 If you found this project helpful, please consider leaving a 🌟 star. Thank you!
 
 <p align="center"\>
-<img src="https://spotify-github-profile.onrender.com/card?uid=31lmzhpy2migtudcggvvnrrth73y&theme=elite" alt="Elite Theme Preview"/\>
 </p\>
 
 - [My Discord Profile](https://discord.com/users/852103749228036136)
