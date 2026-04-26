@@ -135,6 +135,7 @@ impl EngineManager {
     }
 
     pub fn start<D: EngineEventDispatcher + Clone + 'static>(&self, preset: &Preset, dispatcher: &D) -> Result<(), EngineError> {
+        #[cfg(target_os = "windows")]
         if !is_elevated() {
             return Err(EngineError::InsufficientPrivileges);
         }
@@ -172,6 +173,14 @@ impl EngineManager {
             ))?;
 
         let prepared_args = Self::prepare_args(&preset.args);
+
+        #[cfg(target_os = "linux")]
+        {
+            if let Err(e) = Self::ensure_linux_capabilities(&winws_path) {
+                self.set_status(EngineStatus::Error { message: e.to_string(), code: Some("CAP_ERROR".into()) }, dispatcher);
+                return Err(e);
+            }
+        }
 
         let mut command = std::process::Command::new(&winws_path);
         command.args(&prepared_args)
@@ -307,5 +316,41 @@ impl EngineManager {
             tracing::error!("Status lock zehirlendi. Durum güncellenemiyor.");
         }
         dispatcher.emit_status(&new_status);
+    }
+
+    #[cfg(target_os = "linux")]
+    fn ensure_linux_capabilities(binary_path: &std::path::Path) -> Result<(), EngineError> {
+        // Zaten root isek cap ayarlarına gerek yok, her şeyi yapabiliriz.
+        if unsafe { libc::getuid() == 0 } {
+            return Ok(());
+        }
+
+        // Mevcut yetkileri kontrol et
+        let output = std::process::Command::new("getcap")
+            .arg(binary_path)
+            .output()
+            .map_err(|e| EngineError::IoError(format!("getcap çalıştırılamadı: {}", e)))?;
+            
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.contains("cap_net_admin") && stdout.contains("cap_net_raw") {
+            return Ok(()); // Yetkiler zaten tam
+        }
+
+        tracing::info!("Binary yetkileri eksik. pkexec ile setcap isteniyor...");
+        let setcap_arg = "cap_net_admin,cap_net_raw+ep";
+        
+        let pkexec_status = std::process::Command::new("pkexec")
+            .arg("setcap")
+            .arg(setcap_arg)
+            .arg(binary_path)
+            .status()
+            .map_err(|e| EngineError::IoError(format!("pkexec çalıştırılamadı: {}", e)))?;
+
+        if pkexec_status.success() {
+            tracing::info!("setcap başarıyla uygulandı!");
+            Ok(())
+        } else {
+            Err(EngineError::InsufficientPrivileges)
+        }
     }
 }
