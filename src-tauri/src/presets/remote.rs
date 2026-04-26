@@ -14,8 +14,7 @@ pub const REMOTE_PRESETS_SIG_URL: &str =
     "https://raw.githubusercontent.com/luluwux/Vane-Presets/main/presets.json.minisig";
 
 /// Embedded Minisign public key for verifying the remote JSON.
-/// Set to empty string to indicate signature verification is not yet active.
-pub const MANIFEST_PUBLIC_KEY: &str = "";
+pub const MANIFEST_PUBLIC_KEY: &str = "RWQo/mHXZdRyPdQNeH2YrFR8+knwokccmntw3cd24APtrqtxnbHGGaY7";
 
 /// The manifest fetched from the remote endpoint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
