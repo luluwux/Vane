@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { open } from '@tauri-apps/plugin-shell';
 import { Settings, AlertCircle, GitBranch, X } from 'lucide-react';
+import { getVersion } from '@tauri-apps/api/app';
 import { useEngineStore } from '../store/engineStore';
 import { UpdateBanner } from '../components/UpdateBanner';
 import { EngineHealthBadge } from '../components/EngineHealthBadge';
@@ -24,6 +25,11 @@ export function WidgetView() {
   const isError = status.variant === 'error';
 
   const [authError, setAuthError] = useState<string | null>(null);
+  const [version, setVersion] = useState<string>('');
+
+  useEffect(() => {
+    getVersion().then(setVersion);
+  }, []);
 
   useEffect(() => {
     if (status.variant === 'error' && status.code === 'AUTHORIZATION_FAILED') {
@@ -115,7 +121,7 @@ export function WidgetView() {
           <img src={logoUrl} alt="Vane Logo" className={styles.brandIcon} width={30} height={30} />
           <div className={styles.brandTexts}>
             <span className={styles.brandName}>Vane</span>
-            <span className={styles.alphaBadge}>ALPHA</span>
+            <span className={styles.alphaBadge}>v{version}</span>
           </div>
         </div>
 
