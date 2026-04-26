@@ -51,6 +51,12 @@ pub struct EngineManager {
     process: Arc<Mutex<Option<ProcessHandle>>>,
 }
 
+impl Default for EngineManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EngineManager {
     pub fn new() -> Self {
         Self {
