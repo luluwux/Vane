@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+
 
 use crate::config::preset::{builtin_presets, Preset};
 use crate::engine::error::EngineError;
@@ -23,6 +23,12 @@ fn is_valid_id(id: &str) -> bool {
     !id.is_empty() && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
+impl Default for ConfigLoader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConfigLoader {
 /* 
    Loads built-in presets. User custom preset directory
@@ -38,7 +44,7 @@ impl ConfigLoader {
    Loads custom preset JSON files from user's AppData directory.
    Skips corrupted files (does not emit critical errors to user). 
 */
-    pub fn load_custom_presets_from(&mut self, dir: &PathBuf) {
+    pub fn load_custom_presets_from(&mut self, dir: &std::path::Path) {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return;
         };
@@ -80,7 +86,7 @@ impl ConfigLoader {
     }
 
 // Saves a new custom preset and adds it to memory.
-    pub fn save_custom_preset(&mut self, preset: Preset, dir: &PathBuf) -> Result<(), EngineError> {
+    pub fn save_custom_preset(&mut self, preset: Preset, dir: &std::path::Path) -> Result<(), EngineError> {
         if !is_valid_id(&preset.id) {
             return Err(EngineError::InvalidId(preset.id.clone()));
         }
@@ -132,7 +138,7 @@ impl ConfigLoader {
     }
 
 // Deletes the custom preset with the specified ID.
-    pub fn delete_custom_preset(&mut self, id: &str, dir: &PathBuf) -> Result<(), EngineError> {
+    pub fn delete_custom_preset(&mut self, id: &str, dir: &std::path::Path) -> Result<(), EngineError> {
         if !is_valid_id(id) {
             return Err(EngineError::InvalidId(id.to_string()));
         }

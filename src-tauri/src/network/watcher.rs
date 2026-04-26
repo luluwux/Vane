@@ -152,7 +152,7 @@ unsafe extern "system" fn wnd_proc(
                     let now = std::time::Instant::now();
                     LAST_EVENT_TIME.with(|last_time_cell| {
                         let last = last_time_cell.get();
-                        if last.map_or(true, |t| now.duration_since(t) > std::time::Duration::from_millis(500)) {
+                        if last.is_none_or(|t| now.duration_since(t) > std::time::Duration::from_millis(500)) {
                             last_time_cell.set(Some(now));
                             tracing::info!(
                                 "WM_DEVICECHANGE: Network change detected (event=0x{:X}).",
