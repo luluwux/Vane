@@ -14,7 +14,6 @@
   <img src="https://img.shields.io/badge/Build-Rust%20|%20Tauri-orange?style=for-the-badge&logo=rust" alt="Tech">
 </p>
 
----
 
 ## 📖 Introduction
 
@@ -22,7 +21,6 @@
 
 Developed with **Rust** for maximum efficiency and **React** for a premium UX, Vane provides a high-end interface for the legendary [zapret](https://github.com/bol-van/zapret) engine.
 
----
 
 ## 🛠️ Detailed Usage Guide
 
@@ -43,7 +41,6 @@ Vane comes with a curated set of presets optimized for different regions and ISP
 *   **DNS Guard:** If Vane detects you are using an insecure ISP DNS, it will automatically apply Cloudflare (1.1.1.1) to prevent DNS hijacking.
 *   **Health Check:** In the settings, you can add up to 3 domains. Vane will periodically check if these sites are reachable through the bypass tunnel.
 
----
 
 ## ⚙️ Advanced Configuration (Deep Dive)
 
@@ -57,8 +54,6 @@ For power users, the **Advanced** tab allows manual tuning of the bypass engine:
 | **Auto TTL** | Automatically calculates the ideal TTL to fool the ISP without breaking connection. |
 | **MSS Fix** | Limits Maximum Segment Size (default `1300`) to prevent packet drops on restricted tunnels. |
 
----
-
 ## 🛡️ Security & Privacy
 
 Vane is built to be the most secure tool in its class:
@@ -71,8 +66,6 @@ Remote presets are fetched via HTTPS, but we don't trust the network. Every `pre
 
 ### 🛡️ DNS Privacy (DoH)
 Vane includes a built-in **DNS-over-HTTPS Forwarder**. It opens a local listener on `127.0.0.1:5353`. You can point your OS or browser to this port to enjoy fully encrypted DNS lookups that bypass local logging.
-
----
 
 ## 👨‍💻 Developer & Contributor Guide
 
@@ -89,11 +82,11 @@ npm install
 npm run tauri dev # Starts the app in dev mode with HMR
 ```
 
+
 ### 🛰️ Remote Presets Repo
 The dynamic rules are hosted at [Vane-Presets](https://github.com/luluwux/Vane-Presets).
 To add a new preset, create a PR there. Once merged and signed, all Vane clients globally will receive the update automatically within minutes.
 
----
 
 ## ❓ Troubleshooting
 
@@ -101,7 +94,6 @@ To add a new preset, create a PR there. Once merged and signed, all Vane clients
 *   **WinDivert Error:** Ensure no other DPI bypass tools (like GoodbyeDPI) are running simultaneously. Only one app can control the WinDivert driver at a time.
 *   **ISP Info shows N/A:** This is usually a temporary network issue or a rate limit on the geolocation API.
 
----
 
 ## 📜 Credits & License
 
@@ -111,10 +103,21 @@ To add a new preset, create a PR there. Once merged and signed, all Vane clients
 
 Vane is released under the **MIT License**. Use responsibly.
 
----
 
+## 🌟 Support
+
+If you found this project helpful, please consider leaving a 🌟 star. Thank you!
+
+<p align="center"\>
+<img src="https://spotify-github-profile.onrender.com/card?uid=31lmzhpy2migtudcggvvnrrth73y&theme=elite" alt="Elite Theme Preview"/\>
+</p\>
+
+- [My Discord Profile](https://discord.com/users/852103749228036136)
+
+- If you find any errors, you can contact luppux
+<br> </br>
 <p align="center">
-  <a href="https://discord.gg/luppux">
-    <img src="https://img.shields.io/badge/Discord-Join%20Our%20Community-7289DA?style=for-the-badge&logo=discord" alt="Discord">
+  <a href="https://discord.gg/luppux" target="_blank">
+    <img src="https://api.weblutions.com/discord/invite/luppux/" alt="Discord Banner">
   </a>
 </p>
