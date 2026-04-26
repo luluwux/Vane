@@ -67,7 +67,7 @@ async fn start_engine(
             .find_preset(&preset_id)
             .ok_or(EngineError::InvalidPreset(preset_id))?
     };
-    state.engine_manager.start(&preset, &app)?;
+    state.engine_manager.start(&preset, &app).await?;
     Ok(state.engine_manager.current_status())
 }
 
@@ -142,7 +142,7 @@ async fn start_auto_optimize(
         .await
         .map_err(|e| EngineError::SpawnFailed(e.to_string()))?;
 
-    state.engine_manager.start(&best_preset, &app)?;
+    state.engine_manager.start(&best_preset, &app).await?;
     Ok(best_preset)
 }
 
@@ -212,7 +212,7 @@ async fn start_engine_with_dns_guard(
             .find_preset(&preset_id)
             .ok_or(EngineError::InvalidPreset(preset_id))?
     };
-    state.engine_manager.start(&preset, &app)?;
+    state.engine_manager.start(&preset, &app).await?;
 
     let _ = app.emit("dns_status_changed", ());
 
@@ -647,7 +647,7 @@ async fn autostart_engine_with_last_preset(app: AppHandle) {
     match preset {
         Some(p) => {
             tracing::info!("Auto-start: '{}' preset'i otomatik devreye alınıyor.", p.label);
-            if let Err(e) = state.engine_manager.start(&p, &app) {
+            if let Err(e) = state.engine_manager.start(&p, &app).await {
                 tracing::error!("Auto-start: Motor başlatılamadı: {}", e);
             }
         }

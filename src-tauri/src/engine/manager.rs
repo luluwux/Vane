@@ -135,7 +135,7 @@ impl EngineManager {
         final_args
     }
 
-    pub fn start<D: EngineEventDispatcher + Clone + 'static>(&self, preset: &Preset, dispatcher: &D) -> Result<(), EngineError> {
+    pub async fn start<D: EngineEventDispatcher + Clone + 'static>(&self, preset: &Preset, dispatcher: &D) -> Result<(), EngineError> {
         #[cfg(target_os = "windows")]
         if !is_elevated() {
             return Err(EngineError::InsufficientPrivileges);
@@ -205,7 +205,7 @@ impl EngineManager {
             let mut line = String::new();
             use tokio::io::AsyncBufReadExt;
             
-            match tauri::async_runtime::block_on(reader.read_line(&mut line)) {
+            match reader.read_line(&mut line).await {
                 Ok(n) if n > 0 && line.trim().starts_with("READY") => {
                     tracing::info!("Linux Root Wrapper aktif: {}", line.trim());
                 }
