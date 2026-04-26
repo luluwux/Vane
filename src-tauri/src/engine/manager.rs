@@ -258,8 +258,6 @@ impl EngineManager {
             }
         };
 
-        #[cfg(target_os = "linux")]
-        let job_guard = None;
 
         let stdout = child.stdout.take()
             .ok_or_else(|| EngineError::IoError("stdout pipe oluşturulamadı (OS pipe limiti?)".into()))?;
