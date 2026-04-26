@@ -72,7 +72,7 @@ export function HomeView() {
     if (!geoFetched.current) {
       geoFetched.current = true;
 
-      fetch('http://ip-api.com/json/')
+      fetch('https://ip-api.com/json/')
         .then((res) => res.json())
         .then((data) => setGeoData(data))
         .catch(() => setGeoData((prev) => ({ ...prev, query: 'Error' })));

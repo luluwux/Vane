@@ -350,6 +350,7 @@ pub struct ForwarderStatus {
 async fn start_doh_forwarder(
     state: State<'_, AppState>,
 ) -> Result<ForwarderStatus, String> {
+    // First check (fast path: avoid unnecessary async spawn).
     {
         let guard = state.forwarder.lock()
             .map_err(|_| "Forwarder lock poisoned.".to_string())?;
@@ -357,6 +358,8 @@ async fn start_doh_forwarder(
             return Err("DoH Forwarder is already running.".into());
         }
     }
+    // Note: lock released before spawn — a concurrent call can pass this check too.
+    // The definitive guard is the single-scope check-and-assign block below.
 
     let handle = spawn_doh_forwarder(
         state.http_client.clone(),
@@ -364,36 +367,26 @@ async fn start_doh_forwarder(
         DoHEndpoint::Cloudflare,
     ).await?;
 
-    let port = handle.port;
-    let endpoint = handle.endpoint.url().to_string();
-
-    let conflict = {
-        let guard = state.forwarder.lock()
-            .map_err(|_| "Forwarder lock poisoned.".to_string())?;
-        guard.is_some()
-    };
-
-    if conflict {
-        // Race condition: another invocation started the forwarder in the meantime.
-        // We must stop the one we just started and return an error.
-        handle.stop().await;
-        return Err("DoH Forwarder is already running.".into());
-    }
-
-    {
+    // Definitive check-and-assign in a single lock scope to prevent double-start.
+    let status = {
         let mut guard = state.forwarder.lock()
             .map_err(|_| "Forwarder lock poisoned.".to_string())?;
-            
-        let status = ForwarderStatus {
-            active: true,
-            port,
-            endpoint,
-        };
 
+        if guard.is_some() {
+            // Race condition: another concurrent call won — stop the handle we just spawned.
+            tauri::async_runtime::spawn(async move { handle.stop().await; });
+            return Err("DoH Forwarder is already running.".into());
+        }
+
+        let port = handle.port;
+        let endpoint = handle.endpoint.url().to_string();
         *guard = Some(handle);
-        tracing::info!("DoH Forwarder started: port {}", DOH_FORWARDER_DEFAULT_PORT);
-        Ok(status)
-    }
+
+        ForwarderStatus { active: true, port, endpoint }
+    };
+
+    tracing::info!("DoH Forwarder started: port {}", DOH_FORWARDER_DEFAULT_PORT);
+    Ok(status)
 }
 
 /// Stops the DoH forwarder if running.
@@ -438,6 +431,7 @@ fn get_doh_forwarder_status(state: State<'_, AppState>) -> ForwarderStatus {
    Spawns `ping -n 1 -w 3000 1.1.1.1` and parses the avg ms from stdout.
    Falls back to None if the command fails or output cannot be parsed.
 */
+#[cfg(target_os = "windows")]
 fn icmp_ping_ms() -> Option<u64> {
     let output = std::process::Command::new("ping")
         .args(["-n", "1", "-w", "3000", "1.1.1.1"])
@@ -513,11 +507,10 @@ async fn get_engine_health(
 
     // Step 2: If healthy, report true ICMP system latency (not HTTP overhead).
     // This gives users an honest "my ping" reading rather than a DPI-inflated HTTP RTT.
-    let latency_ms = if all_healthy {
-        icmp_ping_ms().unwrap_or(0)
-    } else {
-        0
-    };
+    #[cfg(target_os = "windows")]
+    let latency_ms: u64 = if all_healthy { icmp_ping_ms().unwrap_or(0) } else { 0 };
+    #[cfg(not(target_os = "windows"))]
+    let latency_ms: u64 = 0;
 
     let now = {
         use std::time::{SystemTime, UNIX_EPOCH};
@@ -563,6 +556,7 @@ async fn resolve_via_doh(
    Cleans up dangling winws instances from previous sessions during initialization.
    Prevents zombie processes if the app previously crashed or was forcefully closed. 
 */
+#[cfg(target_os = "windows")]
 fn kill_existing_winws() {
     tracing::info!("Startup cleanup: Searching for existing winws process...");
     let result = std::process::Command::new("taskkill")
@@ -583,6 +577,7 @@ fn kill_existing_winws() {
     }
 }
 
+#[cfg(target_os = "windows")]
 fn cleanup_stale_windivert() {
     tracing::info!("Startup cleanup: Checking for stale WinDivert services...");
     let result = std::process::Command::new("sc")
@@ -633,8 +628,10 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
-            // Clean up dangling processes from previous runs
+            // Clean up dangling processes from previous runs (Windows only)
+            #[cfg(target_os = "windows")]
             kill_existing_winws();
+            #[cfg(target_os = "windows")]
             cleanup_stale_windivert();
 
             // ─── Feature 6B: Event-driven network watcher ─────────────────

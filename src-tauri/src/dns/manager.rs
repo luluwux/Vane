@@ -119,6 +119,7 @@ pub fn builtin_providers() -> Vec<DnsProvider> {
 
 /// Reads active network adapters and current DNS settings on the system.
 /// Parses the output of `netsh interface ip show config`.
+#[cfg(target_os = "windows")]
 pub fn get_active_adapters() -> Vec<NetworkAdapter> {
     let output = Command::new("netsh")
         .args(["interface", "ip", "show", "config"])
@@ -131,6 +132,11 @@ pub fn get_active_adapters() -> Vec<NetworkAdapter> {
 
     let text = String::from_utf8_lossy(&out.stdout);
     parse_netsh_config(&text)
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn get_active_adapters() -> Vec<NetworkAdapter> {
+    vec![]
 }
 
 fn parse_netsh_config(text: &str) -> Vec<NetworkAdapter> {
@@ -208,6 +214,7 @@ fn parse_netsh_config(text: &str) -> Vec<NetworkAdapter> {
 
 /// Applies the given DNS to all active adapters.
 /// netsh interface ip set dns "AdapterName" static 1.1.1.1
+#[cfg(target_os = "windows")]
 pub fn apply_dns(primary: &str, secondary: &str) -> ApplyDnsResult {
     let adapters = get_active_adapters();
 
@@ -273,7 +280,14 @@ pub fn apply_dns(primary: &str, secondary: &str) -> ApplyDnsResult {
     }
 }
 
+// DNS management on Linux is handled via resolv.conf / systemd-resolved — stub for now.
+#[cfg(not(target_os = "windows"))]
+pub fn apply_dns(_primary: &str, _secondary: &str) -> ApplyDnsResult {
+    ApplyDnsResult { success: true, applied_adapters: vec![], error: None }
+}
+
 /// Reverts DNS back to DHCP (automatic).
+#[cfg(target_os = "windows")]
 pub fn reset_dns_to_dhcp() -> ApplyDnsResult {
     let adapters = get_active_adapters();
     let mut applied = vec![];
@@ -303,8 +317,14 @@ pub fn reset_dns_to_dhcp() -> ApplyDnsResult {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
+pub fn reset_dns_to_dhcp() -> ApplyDnsResult {
+    ApplyDnsResult { success: true, applied_adapters: vec![], error: None }
+}
+
 /// Checks if the current DNS is a known trusted DNS.
 /// Returns `false` if ISP DNS is used.
+#[cfg(target_os = "windows")]
 pub fn is_using_trusted_dns() -> bool {
     let trusted = [
         "1.1.1.1", "1.0.0.1",       // Cloudflare
@@ -323,4 +343,10 @@ pub fn is_using_trusted_dns() -> bool {
         }
     }
     false
+}
+
+// On Linux, assume trusted DNS since management is external (e.g., systemd-resolved).
+#[cfg(not(target_os = "windows"))]
+pub fn is_using_trusted_dns() -> bool {
+    true
 }

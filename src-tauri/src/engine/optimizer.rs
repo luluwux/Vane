@@ -5,6 +5,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::config::preset::{Preset, builtin_presets};
 use crate::privilege::checker::is_elevated;
+#[cfg(target_os = "windows")]
 use crate::engine::job::JobObjectGuard;
 use std::process::Stdio;
 use tokio::process::Child as AsyncChild;
@@ -37,6 +38,7 @@ pub enum OptimizeError {
 */
 struct ChildGuard {
     child: Option<AsyncChild>,
+    #[cfg(target_os = "windows")]
     #[allow(dead_code)]
     job_guard: Option<JobObjectGuard>,
 }
@@ -95,7 +97,12 @@ impl Optimizer {
             tracing::debug!("Preset test ediliyor: {} {:?}", preset.label, preset.args);
 
             // Run from Resource folder due to Native sidecar issues
-            let bin_path_result = self.app.path().resolve("binaries/winws-x86_64-pc-windows-msvc.exe", tauri::path::BaseDirectory::Resource);
+            #[cfg(target_os = "windows")]
+            let binary_name = "binaries/winws-x86_64-pc-windows-msvc.exe";
+            #[cfg(target_os = "linux")]
+            let binary_name = "binaries/nfqws-x86_64-unknown-linux-gnu";
+
+            let bin_path_result = self.app.path().resolve(binary_name, tauri::path::BaseDirectory::Resource);
             
             let spawn_result = match bin_path_result {
                 Ok(path) => {
@@ -107,8 +114,10 @@ impl Optimizer {
                     cmd.args(&preset.args)
                         .current_dir(working_dir)
                         .stdout(Stdio::null())
-                        .stderr(Stdio::null())
-                        .creation_flags(0x08000000);
+                        .stderr(Stdio::null());
+
+                    #[cfg(target_os = "windows")]
+                    cmd.creation_flags(0x08000000);
                         
                     cmd.spawn()
                         .map_err(|e| OptimizeError::EngineError(e.to_string()))
@@ -126,19 +135,22 @@ impl Optimizer {
 
             let pid = child.id().unwrap_or(0);
             
-            /* 
-               Assign child to Job Object for kernel-level cleanup guarantee.
-               If Vane crashes during optimization, winws is killed by Windows. 
-            */
-            let job_guard = JobObjectGuard::new()
-                .and_then(|j| j.assign(pid).map(|_| j))
-                .ok();
-
             // RAII guard: child is killed and job handle closed upon exiting scope.
             let guard = ChildGuard {
                 child: Some(child),
-                job_guard,
+                #[cfg(target_os = "windows")]
+                job_guard: {
+                    /* 
+                       Assign child to Job Object for kernel-level cleanup guarantee.
+                       If Vane crashes during optimization, winws is killed by Windows. 
+                    */
+                    JobObjectGuard::new()
+                        .and_then(|j| j.assign(pid).map(|_| j))
+                        .ok()
+                },
             };
+            #[cfg(not(target_os = "windows"))]
+            let _ = pid;
 
             // Wait time for WinDivert kernel filter injection
             tokio::time::sleep(Duration::from_millis(3000)).await;

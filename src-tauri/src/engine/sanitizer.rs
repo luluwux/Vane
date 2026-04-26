@@ -227,4 +227,34 @@ mod tests {
         let args = vec!["../../../etc/passwd".to_string()];
         assert!(validate_preset_args(&args).is_err());
     }
+
+    #[test]
+    fn test_windivert_args_pass() {
+        // Validates that Windows WinDivert capture flags are accepted.
+        // These were the critical missing prefixes that caused the "Logic Bomb".
+        let args = vec![
+            "--windivert".to_string(),
+            "--windivert=filter".to_string(),
+            "tcp.DstPort==443".to_string(),
+            "udp.DstPort==443".to_string(),
+            "icmp.Type==8".to_string(),
+        ];
+        assert!(validate_preset_args(&args).is_ok());
+    }
+
+    #[test]
+    fn test_linux_qnum_arg_passes() {
+        // Validates that the Linux NFQUEUE argument injected by prepare_args is accepted.
+        let args = vec!["--qnum=200".to_string()];
+        assert!(validate_preset_args(&args).is_ok());
+    }
+
+    #[test]
+    fn test_hostlist_args_pass() {
+        let args = vec![
+            "--hostlist=/etc/zapret/list.txt".to_string(),
+            "--wl=example.com".to_string(),
+        ];
+        assert!(validate_preset_args(&args).is_ok());
+    }
 }
