@@ -67,8 +67,9 @@ export function useEventListeners(): void {
       isMounted = false;
       cleanupFns.forEach((fn) => fn());
     };
-  // Zustand action references are stable — safe to list as deps
-  }, [appendLog, appendLogs, setStatus, refreshDnsStatus, refreshPresets, startEngine]);
+  // Zustand action references are stable — safe to list as deps.
+  // Note: startEngine is intentionally excluded; it is never used inside this hook.
+  }, [appendLog, appendLogs, setStatus, refreshDnsStatus, refreshPresets]);
 }
 
 // Infers a log level from the message content.

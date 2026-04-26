@@ -6,6 +6,8 @@ import { useEngineStore } from '../store/engineStore';
 import { Shield, RefreshCw, Wifi, Activity, Plus, X } from 'lucide-react';
 import styles from './HomeView.module.css';
 
+type UnlistenFn = () => void;
+
 export function HomeView() {
   const {
     status,
@@ -86,20 +88,34 @@ export function HomeView() {
     invoke<boolean>('check_is_elevated').then(setIsElevated).catch(() => { });
     invoke<boolean>('get_autostart_status').then(setAutostartEnabled).catch(() => { });
 
-    // Listen for remote preset events
-    const unlistenUpdated = listen('remote_presets_updated', () => {
+    // Proper cleanup: collect unlisten functions and call them on unmount.
+    // Using a cleanup array instead of .then() prevents dangling listeners on
+    // early unmount or promise rejection.
+    const cleanupFns: UnlistenFn[] = [];
+    let active = true;
+
+    const addListener = async <T,>(event: string, handler: (payload: T) => void) => {
+      const unlisten = await listen<T>(event, (e) => handler(e.payload));
+      if (!active) {
+        unlisten(); // component already unmounted before promise resolved
+      } else {
+        cleanupFns.push(unlisten);
+      }
+    };
+
+    addListener('remote_presets_updated', () => {
       setRemoteStatus('updated');
       refreshPresets();
       setTimeout(() => setRemoteStatus('idle'), 3000);
     });
 
-    const unlistenOffline = listen('remote_presets_offline', () => {
+    addListener('remote_presets_offline', () => {
       setRemoteStatus('offline');
     });
 
     return () => {
-      unlistenUpdated.then(fn => fn());
-      unlistenOffline.then(fn => fn());
+      active = false;
+      cleanupFns.forEach((fn) => fn());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -601,6 +601,62 @@ fn cleanup_stale_windivert() {
     }
 }
 
+/// Reads the last active preset ID from the persisted Zustand store file.
+/// Zustand writes JSON like: `{"vane-settings": "{\"state\":{\"activePresetId\":\"...\"}}"}` 
+fn read_last_preset_id(app: &AppHandle) -> Option<String> {
+    let app_data = app.path().app_data_dir().ok()?;
+    let content = std::fs::read_to_string(app_data.join("settings.json")).ok()?;
+    let file_json: serde_json::Value = serde_json::from_str(&content).ok()?;
+
+    let zustand_raw = file_json.get("vane-settings")?;
+    // Value is stored as an escaped JSON string; fall back to treating it as an object.
+    let zustand_json: serde_json::Value = match zustand_raw {
+        serde_json::Value::String(s) => serde_json::from_str(s).ok()?,
+        obj => obj.clone(),
+    };
+
+    zustand_json
+        .get("state")?
+        .get("activePresetId")?
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+}
+
+/// Automatically resumes DPI bypass after an --autostart launch.
+/// Reads the persisted preset and starts the engine silently.
+async fn autostart_engine_with_last_preset(app: AppHandle) {
+    // Short delay so AppState is guaranteed to be registered via app.manage().
+    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+
+    let Some(state) = app.try_state::<AppState>() else {
+        tracing::warn!("Auto-start: AppState henüz hazır değil, atlanıyor.");
+        return;
+    };
+
+    let Some(preset_id) = read_last_preset_id(&app) else {
+        tracing::info!("Auto-start: Kayıtlı preset bulunamadı, motor başlatılmıyor.");
+        return;
+    };
+
+    let preset = {
+        let Ok(loader) = state.config_loader.lock() else { return };
+        loader.find_preset(&preset_id)
+    };
+
+    match preset {
+        Some(p) => {
+            tracing::info!("Auto-start: '{}' preset'i otomatik devreye alınıyor.", p.label);
+            if let Err(e) = state.engine_manager.start(&p, &app) {
+                tracing::error!("Auto-start: Motor başlatılamadı: {}", e);
+            }
+        }
+        None => {
+            tracing::warn!("Auto-start: '{}' ID'li preset bulunamadı.", preset_id);
+        }
+    }
+}
+
 pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -710,6 +766,11 @@ pub fn run() {
                 });
             }
 
+            // Detect --autostart early so it's available both for window visibility
+            // and for the engine auto-start task spawned after app.manage() below.
+            let is_autostart = std::env::args()
+                .any(|arg| arg == "--autostart" || arg == "--minimized");
+
             // Lock main widget position to the bottom right of the primary screen
             if let Some(main_win) = app.get_webview_window("main") {
                 let _ = main_win.set_minimizable(false);
@@ -729,9 +790,6 @@ pub fn run() {
                     let _ = main_win.set_position(pos);
                 }
 
-                let args: Vec<String> = std::env::args().collect();
-                let is_autostart = args.iter().any(|arg| arg == "--autostart" || arg == "--minimized");
-                
                 if !is_autostart {
                     let _ = main_win.show();
                     let _ = main_win.set_focus();
@@ -832,6 +890,14 @@ pub fn run() {
                 http_client,
                 forwarder: Mutex::new(None),
             });
+
+            // Auto-start: if launched via Task Scheduler / systemd, resume the last DPI preset.
+            if is_autostart {
+                let autostart_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    autostart_engine_with_last_preset(autostart_handle).await;
+                });
+            }
 
             Ok(())
         })

@@ -57,9 +57,11 @@ export function WidgetView() {
 
   const closeWindow = async () => {
     try {
-      await getCurrentWebviewWindow().close();
+      // hide() is used intentionally: the backend's CloseRequested handler would call
+      // prevent_close() + hide() anyway, so calling hide() directly avoids the roundtrip.
+      await getCurrentWebviewWindow().hide();
     } catch (e) {
-      console.error('Failed to close window', e);
+      console.error('Failed to hide window', e);
     }
   };
 
