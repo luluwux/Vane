@@ -63,8 +63,7 @@
       "endpoints": [
         "https://github.com/luluwux/Vane/releases/latest/download/latest.json"
       ],
-      "dialog": false,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEwNjA5QjcwQjZCQzRGOTQKUldTVVQ3eTJjSnRnb04zdyszSlVjSzdXRC9VZFZPTm5sWHFLWndhcFlZR0lmdzk3eWUwT3R2TjQK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJBN0NCRDIxM0MyQ0QyRTgKUldUbzBpdzhJYjE4S29TR3dsWGpHNElseitvTWphRmhONjA3N0g1bk5sVEg2S3VKb2dIZVVyYTEK"
     }
   }
 }
