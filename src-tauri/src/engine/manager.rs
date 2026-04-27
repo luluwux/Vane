@@ -71,11 +71,11 @@ impl EngineManager {
     fn resolve_binary_path(dispatcher: &impl EngineEventDispatcher) -> Result<std::path::PathBuf, EngineError> {
         let path = dispatcher
             .resolve_path("binaries/winws-x86_64-pc-windows-msvc.exe", tauri::path::BaseDirectory::Resource)
-            .map_err(|e| EngineError::BinaryNotFound(format!("Tauri Path resolve hatası: {}", e)))?;
+            .map_err(|e| EngineError::BinaryNotFound(format!("Tauri Path resolve error: {}", e)))?;
             
         if !path.exists() {
             return Err(EngineError::BinaryNotFound(
-                format!("WinWS bulunamadı. Lütfen binaries klasörünün bozulmadığına emin olun. Aranan Yol: {}", path.display())
+                format!("WinWS not found. Please make sure the binaries folder is intact. Looked at: {}", path.display())
             ));
         }
         
@@ -87,11 +87,11 @@ impl EngineManager {
     fn resolve_binary_path(dispatcher: &impl EngineEventDispatcher) -> Result<std::path::PathBuf, EngineError> {
         let path = dispatcher
             .resolve_path("binaries/nfqws-x86_64-unknown-linux-gnu", tauri::path::BaseDirectory::Resource)
-            .map_err(|e| EngineError::BinaryNotFound(format!("Tauri Path resolve hatası: {}", e)))?;
+            .map_err(|e| EngineError::BinaryNotFound(format!("Tauri Path resolve error: {}", e)))?;
             
         if !path.exists() {
             return Err(EngineError::BinaryNotFound(
-                format!("nfqws bulunamadı. Lütfen binaries klasörünün bozulmadığına emin olun. Aranan Yol: {}", path.display())
+                format!("nfqws not found. Please make sure the binaries folder is intact. Looked at: {}", path.display())
             ));
         }
         
@@ -151,9 +151,9 @@ impl EngineManager {
         {
             let process_lock = self.process.lock()
                 .map_err(|_| {
-                    tracing::error!("Process lock zehirlendi. Kritik durum.");
+                    tracing::error!("Process lock poisoned. Critical state.");
                     self.set_status(EngineStatus::Error { message: "Internal Error: State poisoned".into(), code: None }, dispatcher);
-                    EngineError::IoError("Process lock zehirlendi".into())
+                    EngineError::IoError("Process lock poisoned".into())
                 })?;
             if process_lock.is_some() {
                 return Err(EngineError::AlreadyRunning);
@@ -197,7 +197,7 @@ impl EngineManager {
                 .stderr(Stdio::piped());
 
             let mut c = tokio::process::Command::from(root_cmd).spawn().map_err(|e| {
-                EngineError::SpawnFailed(format!("Linux Root Wrapper başlatılamadı: {}", e))
+                EngineError::SpawnFailed(format!("Linux Root Wrapper could not be started: {}", e))
             })?;
 
             let stdout = c.stdout.take().ok_or_else(|| EngineError::IoError("Stdout alınamadı".into()))?;
@@ -211,7 +211,7 @@ impl EngineManager {
                 }
                 _ => {
                     let _ = c.start_kill();
-                    return Err(EngineError::AuthorizationFailed("Yetki reddedildi veya script hatası.".into()));
+                    return Err(EngineError::AuthorizationFailed("Authorization denied or script error.".into()));
                 }
             }
 
@@ -232,14 +232,14 @@ impl EngineManager {
             command.creation_flags(CREATE_NO_WINDOW);
             
             let c = tokio::process::Command::from(command).spawn().map_err(|e| {
-                tracing::error!("Süreç başlatılamadı: {}", e);
+                tracing::error!("Process could not be started: {}", e);
                 EngineError::SpawnFailed(e.to_string())
             })?;
             (c, None)
         };
 
         let pid = child.id().unwrap_or(0);
-        tracing::info!("Engine başarıyla başlatıldı, PID: {}", pid);
+        tracing::info!("Engine started successfully, PID: {}", pid);
 
         #[cfg(target_os = "windows")]
         let job_guard = match JobObjectGuard::new().and_then(|j| j.assign(pid).map(|_| j)) {
@@ -248,12 +248,12 @@ impl EngineManager {
                 Some(j)
             }
             Err(e) => {
-                tracing::error!("Job Object atanamadı, motor başlatılmıyor: {}", e);
+                tracing::error!("Job Object could not be assigned, engine not starting: {}", e);
                 let _ = child.start_kill();
-                let _ = tauri::async_runtime::block_on(child.wait());
+                let _ = child.wait().await;
                 self.set_status(EngineStatus::Error { message: "Job Object oluşturulamadı".into(), code: Some("JOB_OBJECT_ERROR".into()) }, dispatcher);
                 return Err(EngineError::IoError(
-                    format!("Kernel-level process guard (Job Object) oluşturulamadı: {}. Güvenlik gereksinimi karşılanamadı.", e)
+                    format!("Kernel-level process guard (Job Object) could not be created: {}. Security requirement not met.", e)
                 ));
             }
         };
@@ -279,9 +279,9 @@ impl EngineManager {
         {
             let mut process_lock = self.process.lock()
                 .map_err(|_| {
-                    tracing::error!("Process lock zehirlendi (kaydetme aşaması).");
+                    tracing::error!("Process lock poisoned (save phase).");
                     self.set_status(EngineStatus::Error { message: "Internal Error: State poisoned".into(), code: None }, dispatcher);
-                    EngineError::IoError("Process lock zehirlendi".into())
+                    EngineError::IoError("Process lock poisoned".into())
                 })?;
             *process_lock = Some(handle);
         }
@@ -295,9 +295,9 @@ impl EngineManager {
     pub fn stop(&self, dispatcher: &impl EngineEventDispatcher) -> Result<(), EngineError> {
         let mut process_lock = self.process.lock()
             .map_err(|_| {
-                tracing::error!("Process lock zehirlendi (durdurma aşaması).");
+                tracing::error!("Process lock poisoned (stop phase).");
                 self.set_status(EngineStatus::Error { message: "Internal Error: State poisoned".into(), code: None }, dispatcher);
-                EngineError::IoError("Process lock zehirlendi".into())
+                EngineError::IoError("Process lock poisoned".into())
             })?;
 
         let mut handle = process_lock.take().ok_or(EngineError::NotRunning)?;
@@ -325,19 +325,18 @@ impl EngineManager {
         if let Ok(mut guard) = self.status.lock() {
             *guard = new_status.clone();
         } else {
-            tracing::error!("Status lock zehirlendi. Durum güncellenemiyor.");
+            tracing::error!("Status lock poisoned. Status cannot be updated.");
         }
         dispatcher.emit_status(&new_status);
     }
 
     #[cfg(target_os = "linux")]
     fn ensure_linux_capabilities(binary_path: &std::path::Path) -> Result<(), EngineError> {
-        // Zaten root isek cap ayarlarına gerek yok, her şeyi yapabiliriz.
+
         if is_elevated() {
             return Ok(());
         }
 
-        // Mevcut yetkileri kontrol et
         let output = std::process::Command::new("getcap")
             .arg(binary_path)
             .output()
@@ -345,7 +344,7 @@ impl EngineManager {
             
         let stdout = String::from_utf8_lossy(&output.stdout);
         if stdout.contains("cap_net_admin") && stdout.contains("cap_net_raw") {
-            return Ok(()); // Yetkiler zaten tam
+            return Ok(()); 
         }
 
         tracing::info!("Binary yetkileri eksik. pkexec ile setcap isteniyor...");
@@ -359,7 +358,7 @@ impl EngineManager {
             .map_err(|e| EngineError::IoError(format!("pkexec çalıştırılamadı: {}", e)))?;
 
         if pkexec_status.success() {
-            tracing::info!("setcap başarıyla uygulandı!");
+            tracing::info!("setcap applied successfully!");
             Ok(())
         } else {
             Err(EngineError::InsufficientPrivileges)

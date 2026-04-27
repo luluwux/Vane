@@ -635,7 +635,7 @@ async fn autostart_engine_with_last_preset(app: AppHandle) {
     };
 
     let Some(preset_id) = read_last_preset_id(&app) else {
-        tracing::info!("Auto-start: Kayıtlı preset bulunamadı, motor başlatılmıyor.");
+        tracing::info!("Auto-start: Saved preset not found, engine not starting.");
         return;
     };
 
@@ -648,11 +648,11 @@ async fn autostart_engine_with_last_preset(app: AppHandle) {
         Some(p) => {
             tracing::info!("Auto-start: '{}' preset'i otomatik devreye alınıyor.", p.label);
             if let Err(e) = state.engine_manager.start(&p, &app).await {
-                tracing::error!("Auto-start: Motor başlatılamadı: {}", e);
+                tracing::error!("Auto-start: Engine could not be started: {}", e);
             }
         }
         None => {
-            tracing::warn!("Auto-start: '{}' ID'li preset bulunamadı.", preset_id);
+            tracing::warn!("Auto-start: Preset with ID '{}' not found.", preset_id);
         }
     }
 }

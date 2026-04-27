@@ -74,14 +74,14 @@ impl ProcessHandle {
                 // try_wait is non-blocking
                 match child.try_wait() {
                     Ok(Some(_)) => {
-                        tracing::info!("winws (PID {}) graceful shutdown başarıyla tamamlandı.", self.pid);
+                        tracing::info!("winws (PID {}) graceful shutdown completed successfully.", self.pid);
                         return;
                     }
                     Ok(None) => {
                         std::thread::sleep(std::time::Duration::from_millis(10));
                     }
                     Err(e) => {
-                        tracing::warn!("try_wait hatası: {}", e);
+                        tracing::warn!("try_wait error: {}", e);
                         break;
                     }
                 }
@@ -100,15 +100,26 @@ impl ProcessHandle {
             // ve iptables temizlik komutlarının çalışmasını sağlar.
             drop(child.stdin.take());
 
-            let timeout_result = tauri::async_runtime::block_on(async {
-                tokio::time::timeout(std::time::Duration::from_secs(2), child.wait()).await
-            });
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+            let mut exited = false;
+            while std::time::Instant::now() < deadline {
+                match child.try_wait() {
+                    Ok(Some(_)) => {
+                        exited = true;
+                        break;
+                    }
+                    Ok(None) => {
+                        std::thread::sleep(std::time::Duration::from_millis(50));
+                    }
+                    Err(_) => break,
+                }
+            }
             
-            if timeout_result.is_err() {
-                tracing::warn!("Linux Root Wrapper (PID {}) 2 saniye içinde bitmedi, force kill uygulanıyor.", self.pid);
+            if !exited {
+                tracing::warn!("Linux Root Wrapper (PID {}) did not finish in 2 seconds, applying force kill.", self.pid);
                 let _ = child.start_kill();
             } else {
-                tracing::info!("Linux Root Wrapper (PID {}) temizlik yaparak başarıyla kapandı.", self.pid);
+                tracing::info!("Linux Root Wrapper (PID {}) closed successfully after cleanup.", self.pid);
             }
         }
     }
@@ -139,9 +150,13 @@ impl Drop for ProcessHandle {
             {
                 // Stdin'i kapat, scriptin temizlik yapmasına izin ver (max 500ms bekle)
                 drop(child.stdin.take());
-                let _ = tauri::async_runtime::block_on(async {
-                    tokio::time::timeout(std::time::Duration::from_millis(500), child.wait()).await
-                });
+                let deadline = std::time::Instant::now() + std::time::Duration::from_millis(500);
+                while std::time::Instant::now() < deadline {
+                    if let Ok(Some(_)) = child.try_wait() {
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
             }
             let _ = child.start_kill();
             tracing::debug!("ProcessHandle::drop — engine terminated.");

@@ -8,8 +8,8 @@ interface OptimizationModalProps {
 }
 
 export function OptimizationModal({ isOpen }: OptimizationModalProps) {
-  const [step, setStep] = useState('Başlatılıyor...');
-  const [presetName, setPresetName] = useState('Hazırlık');
+  const [step, setStep] = useState('Starting...');
+  const [presetName, setPresetName] = useState('Preparation');
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export function OptimizationModal({ isOpen }: OptimizationModalProps) {
             </div>
             
             <p className={styles.warning}>
-              Lütfen bu işlem bitene kadar bekleyin. Birkaç saniye sürebilir.
+              Please wait until this process is finished. It may take a few seconds.
             </p>
           </motion.div>
         </div>

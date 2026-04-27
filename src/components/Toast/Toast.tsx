@@ -50,7 +50,7 @@ export function Toast({
           <button
             className={styles.closeBtn}
             onClick={onDismiss}
-            aria-label="Bildirimi kapat"
+            aria-label="Close notification"
           >
             ×
           </button>

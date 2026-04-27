@@ -184,7 +184,7 @@ export function TestView() {
                 <input 
                   type="text" 
                   className={styles.input} 
-                  placeholder="örn: reddit.com" 
+                  placeholder="e.g. reddit.com" 
                   value={customUrl}
                   onChange={e => setCustomUrl(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && performTest(customUrl)}

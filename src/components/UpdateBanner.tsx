@@ -78,14 +78,14 @@ export function UpdateBanner() {
             {isInstalling ? (
               <Loader2 size={12} className={styles.spinner} />
             ) : (
-              'Güncelle'
+              'Update'
             )}
           </button>
 
           <button
             className={styles.dismissBtn}
             onClick={() => setDismissed(true)}
-            title="Kapat"
+            title="Close"
           >
             <X size={12} />
           </button>

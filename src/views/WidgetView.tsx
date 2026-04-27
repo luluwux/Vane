@@ -33,7 +33,7 @@ export function WidgetView() {
 
   useEffect(() => {
     if (status.variant === 'error' && status.code === 'AUTHORIZATION_FAILED') {
-      setAuthError('Yetki verilmediği için yönlendirme başlatılamadı.');
+      setAuthError('Redirection could not be started because authorization was not granted.');
     } else {
       setAuthError(null);
     }

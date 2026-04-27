@@ -181,7 +181,7 @@ export function HomeView() {
     try {
       await invoke('install_update');
     } catch (e) {
-      console.error('Güncelleme yüklenemedi:', e);
+      console.error('Failed to install update:', e);
     }
   };
 
@@ -202,7 +202,7 @@ export function HomeView() {
         }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#a5b4fc' }}>
             <Download size={12} />
-            Yeni sürüm mevcut: <strong style={{ color: '#c7d2fe' }}>v{updateInfo.version}</strong>
+            New version available: <strong style={{ color: '#c7d2fe' }}>v{updateInfo.version}</strong>
           </span>
           <div style={{ display: 'flex', gap: 6 }}>
             <button
@@ -219,12 +219,12 @@ export function HomeView() {
                 transition: 'all 0.15s',
               }}
             >
-              Güncelle
+              Update
             </button>
             <button
               onClick={() => setUpdateInfo(null)}
               style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-              title="Kapat"
+              title="Close"
             >
               <X size={12} />
             </button>
@@ -298,10 +298,6 @@ export function HomeView() {
           <span style={{ textTransform: 'capitalize' }}>{sysInfo.os}</span>
         </div>
         <div className={styles.divider} />
-        <div className={styles.infoRow}>
-          <span>Device Model:</span>
-          <span>{sysInfo.device_model}</span>
-        </div>
       </motion.div>
 
       {/* ─── Auto-Start ─────────────────────────────────────────── */}
@@ -402,7 +398,7 @@ export function HomeView() {
             Health Check Targets
           </span>
           <p style={{ fontSize: 10, color: '#888', margin: 0 }}>
-            Siteleri kontrol eder. Maksimum 3 site eklenebilir.
+            Checks connectivity. Maximum 3 targets can be added.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -445,7 +441,7 @@ export function HomeView() {
               <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
                 <input
                   type="text"
-                  placeholder="örn: youtube.com"
+                  placeholder="e.g. youtube.com"
                   value={newTarget}
                   onChange={(e) => setNewTarget(e.target.value)}
                   onKeyDown={(e) => {

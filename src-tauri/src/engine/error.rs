@@ -19,19 +19,19 @@ pub enum EngineError {
     #[error("Mevcut işlem için geçersiz ID: '{0}'")]
     InvalidId(String),
 
-    #[error("Süreç başlatma hatası: {0}")]
+    #[error("Process start error: {0}")]
     SpawnFailed(String),
 
-    #[error("Yapılandırma ayrıştırma hatası: {0}")]
+    #[error("Configuration parse error: {0}")]
     ConfigParseError(String),
 
-    #[error("G/Ç hatası: {0}")]
+    #[error("I/O error: {0}")]
     IoError(String),
 
-    #[error("Binary bulunamadı: {0}")]
+    #[error("Binary not found: {0}")]
     BinaryNotFound(String),
 
-    #[error("Yetki hatası: {0}")]
+    #[error("Authorization error: {0}")]
     AuthorizationFailed(String),
 }
 
