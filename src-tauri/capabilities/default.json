@@ -14,18 +14,6 @@
     "core:window:allow-show",
     "core:window:allow-start-dragging",
     "core:app:default",
-    {
-      "identifier": "shell:allow-execute",
-      "allow": [
-        {
-          "name": "binaries/winws",
-          "cmd": "",
-          "sidecar": true,
-          "args": true
-        }
-      ]
-    },
-    "shell:allow-kill",
     "shell:allow-open",
     "process:default",
     "process:allow-exit",
@@ -37,7 +25,6 @@
     "updater:default",
     "updater:allow-check",
     "updater:allow-download-and-install",
-    "dialog:default",
-    "fs:default"
+    "dialog:default"
   ]
 }

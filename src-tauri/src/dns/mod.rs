@@ -1,6 +1,7 @@
 pub mod manager;
 pub mod doh;
 pub mod forwarder;
+pub mod watchdog;
 
 pub use manager::{
     DnsProvider, NetworkAdapter, ApplyDnsResult,
@@ -9,3 +10,4 @@ pub use manager::{
 };
 pub use doh::{resolve_doh, DohResult, DOH_CLOUDFLARE, DOH_GOOGLE};
 pub use forwarder::{ForwarderHandle, DoHEndpoint, spawn_doh_forwarder, DOH_FORWARDER_DEFAULT_PORT};
+pub use watchdog::spawn_dns_watchdog;

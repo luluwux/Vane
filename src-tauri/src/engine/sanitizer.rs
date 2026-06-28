@@ -71,7 +71,7 @@ const ALLOWED_PREFIXES: &[&str] = &[
    args array (not shell), defense-in-depth demands their exclusion. 
 */
 const FORBIDDEN_CHARS: &[char] = &[
-    '&', ';', '|', '`', '$', '<', '>', '\'', '"', '\\', '\n', '\r', '\0',
+    '&', ';', '|', '`', '$', '<', '>', '\'', '"', '\\', '/', '\n', '\r', '\0',
 ];
 
 // Validates a preset's argument list against the security policy.
@@ -140,6 +140,63 @@ fn validate_single_arg(arg: &str) -> Result<(), EngineError> {
         )));
     }
 
+    // Specific sub-validations
+    if arg.starts_with("--hostlist=") {
+        let val = &arg["--hostlist=".len()..];
+        validate_hostlist_value(val)?;
+    } else if arg.starts_with("--wl=") {
+        let val = &arg["--wl=".len()..];
+        if validate_ip_or_domain(val).is_err() {
+            validate_hostlist_value(val)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_hostlist_value(val: &str) -> Result<(), EngineError> {
+    if val.is_empty() {
+        return Err(EngineError::InvalidPreset("Hostlist değeri boş olamaz".into()));
+    }
+    if val.contains("..") {
+        return Err(EngineError::InvalidPreset("Dizin geçişi (..) tespit edildi".into()));
+    }
+    if val.contains("//") {
+        return Err(EngineError::InvalidPreset("Çift taksim (//) tespit edildi".into()));
+    }
+    if val.contains('\\') {
+        return Err(EngineError::InvalidPreset("Ters taksim (\\) tespit edildi".into()));
+    }
+    if val.contains('\0') {
+        return Err(EngineError::InvalidPreset("Null karakter tespit edildi".into()));
+    }
+    if val.contains('%') {
+        return Err(EngineError::InvalidPreset("Yüzde işareti (%) veya URL encoding tespit edildi".into()));
+    }
+    if val.starts_with('/') {
+        return Err(EngineError::InvalidPreset("Mutlak yol (Linux) kabul edilmiyor".into()));
+    }
+    let chars: Vec<char> = val.chars().collect();
+    if chars.len() >= 2 {
+        if chars[1] == ':' && chars[0].is_ascii_alphabetic() {
+            return Err(EngineError::InvalidPreset("Sürücü harfi içeren mutlak yol kabul edilmiyor".into()));
+        }
+    }
+    Ok(())
+}
+
+fn validate_ip_or_domain(val: &str) -> Result<(), EngineError> {
+    if val.is_empty() {
+        return Err(EngineError::InvalidPreset("IP veya domain değeri boş olamaz".into()));
+    }
+    for c in val.chars() {
+        if !c.is_ascii_alphanumeric() && c != '.' && c != '_' && c != '-' {
+            return Err(EngineError::InvalidPreset(format!("Geçersiz karakter '{}' IP/domain içinde tespit edildi", c)));
+        }
+    }
+    if val.contains("..") {
+        return Err(EngineError::InvalidPreset("Çift nokta (..) tespit edildi".into()));
+    }
     Ok(())
 }
 
@@ -223,9 +280,21 @@ mod tests {
 
     #[test]
     fn test_path_traversal_rejected() {
-        // Ensure directory traversal can't sneak through
-        let args = vec!["../../../etc/passwd".to_string()];
-        assert!(validate_preset_args(&args).is_err());
+        // Ensure directory traversal can't sneak through (even with allowed prefixes)
+        let payloads = vec![
+            "../../../etc/passwd",
+            "--hostlist=../../../etc/passwd",
+            "--hostlist=C:/Windows/win.ini",
+            "--hostlist=..\\..\\Windows\\win.ini",
+        ];
+        for payload in payloads {
+            let args = vec![payload.to_string()];
+            assert!(
+                validate_preset_args(&args).is_err(),
+                "Path traversal did not fail: {}",
+                payload
+            );
+        }
     }
 
     #[test]
@@ -252,9 +321,40 @@ mod tests {
     #[test]
     fn test_hostlist_args_pass() {
         let args = vec![
-            "--hostlist=/etc/zapret/list.txt".to_string(),
+            "--hostlist=list.txt".to_string(),
             "--wl=example.com".to_string(),
         ];
         assert!(validate_preset_args(&args).is_ok());
+    }
+
+    // --- Proptest Fuzzing ---
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn path_traversal_always_rejected(s in ".*") {
+            let arg = format!("--hostlist={}", s);
+            let has_traversal = s.contains("..")
+                || s.contains("//")
+                || s.contains('\\')
+                || s.contains('\0')
+                || s.contains('%')
+                || s.starts_with('/')
+                || (s.len() >= 2 && s.chars().nth(0).unwrap().is_ascii_alphabetic() && s.chars().nth(1).unwrap() == ':');
+
+            let result = validate_single_arg(&arg);
+            if has_traversal {
+                assert!(result.is_err(), "Expected error for: {}", s);
+            }
+        }
+
+        #[test]
+        fn valid_ip_or_domain_always_accepted(s in "[a-zA-Z0-9_-]{1,20}(\\.[a-zA-Z0-9_-]{1,20})*") {
+            let arg = format!("--wl={}", s);
+            let result = validate_single_arg(&arg);
+            if !s.contains("..") && s.len() + 5 <= MAX_ARG_LEN {
+                assert!(result.is_ok(), "Expected ok for: {}, got {:?}", s, result);
+            }
+        }
     }
 }

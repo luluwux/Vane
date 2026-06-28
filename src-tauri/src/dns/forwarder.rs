@@ -20,7 +20,7 @@ use trust_dns_proto::{
     serialize::binary::BinDecodable,
 };
 
-pub const DOH_FORWARDER_DEFAULT_PORT: u16 = 5300;
+pub const DOH_FORWARDER_DEFAULT_PORT: u16 = 53;
 
 // Endpoint options for the DoH upstream resolver.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -46,7 +46,7 @@ pub struct ForwarderHandle {
     pub port: u16,
     pub endpoint: DoHEndpoint,
     // Signal to request graceful shutdown of the listener loop.
-    shutdown: Arc<AtomicBool>,
+    pub shutdown: Arc<AtomicBool>,
     task: tokio::task::JoinHandle<()>,
 }
 
@@ -75,9 +75,19 @@ pub async fn spawn_doh_forwarder(
         .await
         .map_err(|e| format!("DoH Forwarder port {} bağlanamadı: {}", port, e))?;
 
+    let mut fallback_dns = crate::dns::get_active_adapters()
+        .into_iter()
+        .find_map(|a| a.current_primary_dns)
+        .unwrap_or_else(|| "1.1.1.1".to_string());
+
+    if fallback_dns == "127.0.0.1" || fallback_dns == "localhost" || fallback_dns.is_empty() {
+        fallback_dns = "1.1.1.1".to_string();
+    }
+
     tracing::info!(
-        "DoH Forwarder başlatıldı: {} → {}",
+        "DoH Forwarder başlatıldı: {} (Fallback DNS: {}) → {}",
         addr,
+        fallback_dns,
         endpoint.url()
     );
 
@@ -87,7 +97,7 @@ pub async fn spawn_doh_forwarder(
     let endpoint_url = endpoint.url();
 
     let task = tokio::spawn(async move {
-        run_forwarder_loop(socket, client, endpoint_url, shutdown_clone).await;
+        run_forwarder_loop(socket, client, endpoint_url, fallback_dns, shutdown_clone).await;
     });
 
     Ok(ForwarderHandle { port, endpoint, shutdown, task })
@@ -98,6 +108,7 @@ async fn run_forwarder_loop(
     socket: Arc<UdpSocket>,
     client: reqwest::Client,
     endpoint_url: &'static str,
+    fallback_dns: String,
     shutdown: Arc<AtomicBool>,
 ) {
     let mut buf = vec![0u8; 512]; // Standard DNS UDP max payload
@@ -128,6 +139,7 @@ async fn run_forwarder_loop(
         let socket_clone = Arc::clone(&socket);
         let client_clone = client.clone();
         let semaphore_clone = Arc::clone(&semaphore);
+        let fallback_dns_clone = fallback_dns.clone();
 
         let Ok(permit) = semaphore_clone.try_acquire_owned() else {
             tracing::warn!("DoH forwarder: concurrency limit reached, dropping query from {}", client_addr);
@@ -137,12 +149,29 @@ async fn run_forwarder_loop(
         // Handle each DNS query concurrently — multiple clients can query simultaneously.
         tokio::spawn(async move {
             let _permit = permit; // RAII: drop at end of request
-            if let Some(response) = proxy_dns_query(&client_clone, endpoint_url, query_bytes).await {
+            if let Some(response) = proxy_dns_query(&client_clone, endpoint_url, &fallback_dns_clone, query_bytes).await {
                 if let Err(e) = socket_clone.send_to(&response, client_addr).await {
                     tracing::warn!("DoH Forwarder send hatası → {}: {}", client_addr, e);
                 }
             }
         });
+    }
+}
+
+async fn query_fallback_dns(fallback_dns: &str, query_bytes: &[u8]) -> Option<bytes::Bytes> {
+    let socket = UdpSocket::bind("0.0.0.0:0").await.ok()?;
+    let target = format!("{}:53", fallback_dns);
+    socket.send_to(query_bytes, &target).await.ok()?;
+    
+    let mut buf = vec![0u8; 512];
+    let recv_result = tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        socket.recv_from(&mut buf),
+    ).await;
+    
+    match recv_result {
+        Ok(Ok((len, _))) => Some(bytes::Bytes::copy_from_slice(&buf[..len])),
+        _ => None,
     }
 }
 
@@ -153,12 +182,25 @@ async fn run_forwarder_loop(
 async fn proxy_dns_query(
     client: &reqwest::Client,
     endpoint_url: &str,
+    fallback_dns: &str,
     query_bytes: bytes::Bytes,
 ) -> Option<bytes::Bytes> {
     // Validate incoming bytes early — prevents forwarding garbage to DoH.
-    let _parsed = Message::from_bytes(&query_bytes)
+    let parsed = Message::from_bytes(&query_bytes)
         .map_err(|e| tracing::warn!("Geçersiz DNS sorgusu alındı: {}", e))
         .ok()?;
+
+    let is_local = parsed.queries().iter().any(|q| {
+        let name = q.name().to_string();
+        name.ends_with(".local.") || name.ends_with(".lan.") || name.ends_with(".home.") || name.ends_with(".arpa.")
+    });
+
+    if is_local {
+        tracing::debug!("Local domain detected, routing to fallback DNS ({}): {:?}", fallback_dns, parsed.queries());
+        if let Some(resp) = query_fallback_dns(fallback_dns, &query_bytes).await {
+            return Some(resp);
+        }
+    }
 
     // RFC 8484: POST with application/dns-message
     let response = client

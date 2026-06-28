@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
-import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { Trash2, RotateCcw, RefreshCw } from 'lucide-react';
 import styles from './AdvancedView.module.css';
 
@@ -168,7 +167,7 @@ export function AdvancedView() {
       });
       
       if (filePath) {
-        await writeTextFile(filePath, jsonStr);
+        await invoke('export_preset', { filePath, content: jsonStr });
       }
     } catch (e) {
       console.error('Export error:', e);

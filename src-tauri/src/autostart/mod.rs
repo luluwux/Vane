@@ -20,7 +20,12 @@ const SYSTEMD_SERVICE_NAME: &str = "vane";
 /// - Task Scheduler with `/rl highest` silently elevates on logon (no UAC prompt).
 #[cfg(target_os = "windows")]
 pub fn enable_autostart(exe_path: &str) -> Result<(), String> {
-    let task_run = format!("\"{}\" --autostart", exe_path);
+    if exe_path.contains('\n') || exe_path.contains('\r') || exe_path.contains('\0') {
+        return Err("Geçersiz exe_path karakterleri tespit edildi".to_string());
+    }
+    // Escape any double quotes in path by doubling them
+    let escaped_path = exe_path.replace('"', "\"\"");
+    let task_run = format!("\"{}\" --autostart", escaped_path);
     let mut cmd = Command::new("schtasks");
     cmd.args(["/create", "/tn", TASK_NAME, "/tr", &task_run, "/sc", "onlogon", "/rl", "highest", "/f"])
        .creation_flags(CREATE_NO_WINDOW);
@@ -72,6 +77,14 @@ pub fn is_autostart_enabled() -> bool {
 /// No root required — systemd --user runs in the user's own session.
 #[cfg(target_os = "linux")]
 pub fn enable_autostart(exe_path: &str) -> Result<(), String> {
+    if exe_path.contains('\n') || exe_path.contains('\r') || exe_path.contains('\0') {
+        return Err("Geçersiz exe_path karakterleri tespit edildi".to_string());
+    }
+
+    let escaped_path = exe_path
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"");
+
     let service_dir = systemd_user_dir()?;
     std::fs::create_dir_all(&service_dir)
         .map_err(|e| format!("Systemd servis dizini oluşturulamadı: {}", e))?;
@@ -81,7 +94,7 @@ pub fn enable_autostart(exe_path: &str) -> Result<(), String> {
         Description=Vane DPI Bypass Engine\n\
         After=network.target\n\n\
         [Service]\n\
-        ExecStart={exe_path} --autostart\n\
+        ExecStart=\"{escaped_path}\" --autostart\n\
         Restart=no\n\
         Type=simple\n\n\
         [Install]\n\

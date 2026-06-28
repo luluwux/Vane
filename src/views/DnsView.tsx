@@ -176,7 +176,7 @@ export function DnsView() {
         <div className={styles.fwInfo}>
           <ShieldCheck size={18} color={forwarder?.active ? "#4ade80" : "#a1a1aa"} />
           <div>
-            <strong>Local DoH Forwarder (Port 5300)</strong>
+            <strong>Local DoH Forwarder (Port 53)</strong>
             <span>{forwarder?.active ? `Active — Proxying to ${forwarder.endpoint}` : "Inactive — Standard plain DNS used"}</span>
           </div>
         </div>

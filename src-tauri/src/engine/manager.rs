@@ -31,6 +31,7 @@ pub trait EngineEventDispatcher: Send + Sync {
     fn emit_log_batch(&self, batch: Vec<String>);
     fn emit_status(&self, status: &EngineStatus);
     fn resolve_path(&self, path: &str, base: tauri::path::BaseDirectory) -> Result<std::path::PathBuf, tauri::Error>;
+    fn clone_app_handle(&self) -> AppHandle;
 }
 
 impl EngineEventDispatcher for AppHandle {
@@ -45,11 +46,24 @@ impl EngineEventDispatcher for AppHandle {
     fn resolve_path(&self, path: &str, base: tauri::path::BaseDirectory) -> Result<std::path::PathBuf, tauri::Error> {
         self.path().resolve(path, base)
     }
+
+    fn clone_app_handle(&self) -> AppHandle {
+        self.clone()
+    }
+}
+
+#[derive(Debug)]
+pub enum EngineState {
+    Idle,
+    Starting { cancel: tokio::sync::oneshot::Sender<()> },
+    Running { handle: ProcessHandle },
+    Stopping,
+    Failed(EngineError),
 }
 
 pub struct EngineManager {
     status: Arc<Mutex<EngineStatus>>,
-    process: Arc<Mutex<Option<ProcessHandle>>>,
+    state: Arc<Mutex<EngineState>>,
 }
 
 impl Default for EngineManager {
@@ -62,77 +76,64 @@ impl EngineManager {
     pub fn new() -> Self {
         Self {
             status: Arc::new(Mutex::new(EngineStatus::Stopped)),
-            process: Arc::new(Mutex::new(None)),
+            state: Arc::new(Mutex::new(EngineState::Idle)),
         }
     }
 
-    // Safely resolves binary path from Resource along with its DLLs
-    #[cfg(target_os = "windows")]
+    // Safely resolves binary path from Resource
     fn resolve_binary_path(dispatcher: &impl EngineEventDispatcher) -> Result<std::path::PathBuf, EngineError> {
-        let path = dispatcher
-            .resolve_path("binaries/winws-x86_64-pc-windows-msvc.exe", tauri::path::BaseDirectory::Resource)
-            .map_err(|e| EngineError::BinaryNotFound(format!("Tauri Path resolve error: {}", e)))?;
-            
-        if !path.exists() {
-            return Err(EngineError::BinaryNotFound(
-                format!("WinWS not found. Please make sure the binaries folder is intact. Looked at: {}", path.display())
-            ));
+        #[cfg(target_os = "windows")]
+        {
+            let path = dispatcher
+                .resolve_path("binaries/winws-x86_64-pc-windows-msvc.exe", tauri::path::BaseDirectory::Resource)
+                .map_err(|e| EngineError::BinaryNotFound(format!("Tauri Path resolve error: {}", e)))?;
+            if !path.exists() {
+                return Err(EngineError::BinaryNotFound(format!("winws.exe not found at: {}", path.display())));
+            }
+            Ok(path)
         }
-        
-        Ok(path)
+
+        #[cfg(target_os = "linux")]
+        {
+            let path = dispatcher
+                .resolve_path("binaries/nfqws-x86_64-unknown-linux-gnu", tauri::path::BaseDirectory::Resource)
+                .map_err(|e| EngineError::BinaryNotFound(format!("Tauri Path resolve error: {}", e)))?;
+            if !path.exists() {
+                return Err(EngineError::BinaryNotFound(format!("nfqws not found at: {}", path.display())));
+            }
+            // Ensure executable permissions
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(metadata) = std::fs::metadata(&path) {
+                let mut perms = metadata.permissions();
+                if perms.mode() & 0o111 != 0o111 {
+                    perms.set_mode(0o755);
+                    if let Err(e) = std::fs::set_permissions(&path, perms) {
+                        tracing::warn!("Could not set executable permissions on nfqws: {}", e);
+                        return Err(EngineError::IoError(format!("Could not set executable permissions on nfqws: {}", e)));
+                    }
+                }
+            }
+            Ok(path)
+        }
     }
 
-    // Safely resolves binary path for Linux (nfqws)
-    #[cfg(target_os = "linux")]
-    fn resolve_binary_path(dispatcher: &impl EngineEventDispatcher) -> Result<std::path::PathBuf, EngineError> {
-        let path = dispatcher
-            .resolve_path("binaries/nfqws-x86_64-unknown-linux-gnu", tauri::path::BaseDirectory::Resource)
-            .map_err(|e| EngineError::BinaryNotFound(format!("Tauri Path resolve error: {}", e)))?;
-            
-        if !path.exists() {
-            return Err(EngineError::BinaryNotFound(
-                format!("nfqws not found. Please make sure the binaries folder is intact. Looked at: {}", path.display())
-            ));
-        }
-        
-        Ok(path)
-    }
-
-    // Argüman Çeviricisi: Windows argümanlarını Linux için optimize eder
-    #[cfg(target_os = "windows")]
     fn prepare_args(preset_args: &[String]) -> Vec<String> {
-        preset_args.to_vec()
-    }
-
-    #[cfg(target_os = "linux")]
-    fn prepare_args(preset_args: &[String]) -> Vec<String> {
-        let mut final_args = Vec::new();
-        let mut skip_next = false;
-        
-        for arg in preset_args {
-            if skip_next {
-                skip_next = false;
-                continue;
-            }
-            
-            // Eğer argüman --windivert=... formatındaysa
-            if arg.starts_with("--windivert=") {
-                continue;
-            }
-
-            // Eğer argüman `--windivert` ise ve değer hemen arkasından geliyorsa
-            if arg == "--windivert" {
-                skip_next = true;
-                continue;
-            }
-
-            final_args.push(arg.clone());
+        #[cfg(target_os = "windows")]
+        {
+            preset_args.to_vec()
         }
-        
-        // nfqws'in dinleyeceği kuyruk numarasını (Faz 3 ile aynı numara) ekle
-        final_args.push("--qnum=200".to_string());
-        
-        final_args
+        #[cfg(target_os = "linux")]
+        {
+            let mut linux_args = Vec::new();
+            linux_args.push("--qnum=200".to_string());
+            for arg in preset_args {
+                if arg.starts_with("--wf-") || arg.starts_with("--windivert") || arg.starts_with("tcp.") || arg.starts_with("udp.") || arg.starts_with("icmp.") {
+                    continue;
+                }
+                linux_args.push(arg.clone());
+            }
+            linux_args
+        }
     }
 
     pub async fn start<D: EngineEventDispatcher + Clone + 'static>(&self, preset: &Preset, dispatcher: &D) -> Result<(), EngineError> {
@@ -141,177 +142,106 @@ impl EngineManager {
             return Err(EngineError::InsufficientPrivileges);
         }
 
-        /* 
-           Defense-in-depth — validate args before any process is spawned.
-           This catches malicious presets that bypassed frontend validation
-           (e.g., remote preset injection, direct IPC manipulation). 
-        */
         validate_preset_args(&preset.args)?;
 
-        {
-            let process_lock = self.process.lock()
-                .map_err(|_| {
-                    tracing::error!("Process lock poisoned. Critical state.");
-                    self.set_status(EngineStatus::Error { message: "Internal Error: State poisoned".into(), code: None }, dispatcher);
-                    EngineError::IoError("Process lock poisoned".into())
-                })?;
-            if process_lock.is_some() {
-                return Err(EngineError::AlreadyRunning);
-            }
-        }
-
-        self.set_status(EngineStatus::Starting, dispatcher);
-
-        let winws_path = Self::resolve_binary_path(dispatcher)?;
-
-        /* 
-           Setting up the working directory is critical for DLL resolution.
-           winws.exe must run from the same directory as WinDivert.dll. 
-        */
-        let working_dir = winws_path.parent()
-            .ok_or_else(|| EngineError::BinaryNotFound(
-                format!("Binary path'in parent klasörü alınamadı: {:?}", winws_path)
-            ))?;
-
-        let prepared_args = Self::prepare_args(&preset.args);
-
-        #[cfg(target_os = "linux")]
-        let (mut child, route_guard): (tokio::process::Child, Option<crate::network::router::NetworkRouteGuard>) = {
-            let binary_path_str = winws_path.to_string_lossy();
-            let args_str = prepared_args.join(" ");
-            
-            let script = format!(
-                "iptables -t mangle -I OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 200 || exit 1; \
-                 \"{}\" {} & ENGINE_PID=$!; \
-                 echo \"READY:$ENGINE_PID\"; \
-                 cat > /dev/null; \
-                 kill $ENGINE_PID; \
-                 iptables -t mangle -D OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 200",
-                binary_path_str, args_str
-            );
-
-            let mut root_cmd = std::process::Command::new("pkexec");
-            root_cmd.args(["sh", "-c", &script])
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
-
-            let mut c = tokio::process::Command::from(root_cmd).spawn().map_err(|e| {
-                EngineError::SpawnFailed(format!("Linux Root Wrapper could not be started: {}", e))
-            })?;
-
-            let stdout = c.stdout.take().ok_or_else(|| EngineError::IoError("Stdout alınamadı".into()))?;
-            let mut reader = tokio::io::BufReader::new(stdout);
-            let mut line = String::new();
-            use tokio::io::AsyncBufReadExt;
-            
-            match reader.read_line(&mut line).await {
-                Ok(n) if n > 0 && line.trim().starts_with("READY") => {
-                    tracing::info!("Linux Root Wrapper aktif: {}", line.trim());
+        let rx = {
+            let mut state_lock = self.state.lock()
+                .map_err(|_| EngineError::IoError("State lock poisoned".into()))?;
+            match &*state_lock {
+                EngineState::Running { .. } | EngineState::Starting { .. } => {
+                    return Err(EngineError::AlreadyRunning);
                 }
-                _ => {
-                    let _ = c.start_kill();
-                    return Err(EngineError::AuthorizationFailed("Authorization denied or script error.".into()));
-                }
+                _ => {}
             }
-
-            c.stdout = Some(reader.into_inner());
-
-            (c, None)
+            let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+            *state_lock = EngineState::Starting { cancel: tx };
+            self.set_status(EngineStatus::Starting, dispatcher);
+            rx
         };
 
-        #[cfg(target_os = "windows")]
-        let (mut child, _route_guard): (tokio::process::Child, Option<bool>) = {
-            let mut command = std::process::Command::new(&winws_path);
-            command.args(&prepared_args)
-                .current_dir(working_dir)
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
-            
-            use std::os::windows::process::CommandExt;
-            command.creation_flags(CREATE_NO_WINDOW);
-            
-            let c = tokio::process::Command::from(command).spawn().map_err(|e| {
-                tracing::error!("Process could not be started: {}", e);
-                EngineError::SpawnFailed(e.to_string())
-            })?;
-            (c, None)
-        };
+        let app_handle = dispatcher.clone_app_handle();
+        let preset_clone = preset.clone();
+        let state_clone = self.state.clone();
+        let status_clone = self.status.clone();
+        let dispatcher_clone = dispatcher.clone();
 
-        let pid = child.id().unwrap_or(0);
-        tracing::info!("Engine started successfully, PID: {}", pid);
+        let handle_res = spawn_and_run(&preset_clone, &app_handle, rx).await;
 
-        #[cfg(target_os = "windows")]
-        let job_guard = match JobObjectGuard::new().and_then(|j| j.assign(pid).map(|_| j)) {
-            Ok(j) => {
-                tracing::info!("winws PID {} Job Object'a atandı.", pid);
-                Some(j)
+        match handle_res {
+            Ok(handle) => {
+                let pid = handle.pid();
+                let cancelled = self.current_status() == EngineStatus::Stopped;
+
+                if cancelled {
+                    drop(handle); // Kill process safely
+                    set_state_idle(&state_clone);
+                    self.set_status(EngineStatus::Stopped, &dispatcher_clone);
+                    return Err(EngineError::NotRunning);
+                }
+
+                set_state_running(&state_clone, handle);
+
+                self.set_status(EngineStatus::Running { pid }, &dispatcher_clone);
+                tracing::info!("Engine started: preset='{}', pid={}", preset.id, pid);
+
+                // Spawn process watcher supervisor
+                tokio::spawn(async move {
+                    watch_process(pid, app_handle, state_clone, status_clone, preset_clone).await;
+                });
+
+                Ok(())
             }
             Err(e) => {
-                tracing::error!("Job Object could not be assigned, engine not starting: {}", e);
-                let _ = child.start_kill();
-                let _ = child.wait().await;
-                self.set_status(EngineStatus::Error { message: "Job Object oluşturulamadı".into(), code: Some("JOB_OBJECT_ERROR".into()) }, dispatcher);
-                return Err(EngineError::IoError(
-                    format!("Kernel-level process guard (Job Object) could not be created: {}. Security requirement not met.", e)
-                ));
+                set_state_failed(&state_clone, e.clone());
+                self.set_status(EngineStatus::Error { message: e.to_string(), code: None }, &dispatcher_clone);
+                Err(e)
             }
-        };
-
-
-        let stdout = child.stdout.take()
-            .ok_or_else(|| EngineError::IoError("stdout pipe oluşturulamadı (OS pipe limiti?)".into()))?;
-        let stderr = child.stderr.take()
-            .ok_or_else(|| EngineError::IoError("stderr pipe oluşturulamadı (OS pipe limiti?)".into()))?;
-
-        let dispatcher_clone1 = dispatcher.clone();
-        let dispatcher_clone2 = dispatcher.clone();
-        
-        crate::engine::logger::spawn_log_reader(stdout, dispatcher_clone1, None);
-        crate::engine::logger::spawn_log_reader(stderr, dispatcher_clone2, Some("HATA: "));
-
-        #[cfg(target_os = "windows")]
-        let handle = ProcessHandle::new(child, pid, job_guard);
-        #[cfg(target_os = "linux")]
-        let handle = ProcessHandle::new(child, pid, route_guard);
-
-
-        {
-            let mut process_lock = self.process.lock()
-                .map_err(|_| {
-                    tracing::error!("Process lock poisoned (save phase).");
-                    self.set_status(EngineStatus::Error { message: "Internal Error: State poisoned".into(), code: None }, dispatcher);
-                    EngineError::IoError("Process lock poisoned".into())
-                })?;
-            *process_lock = Some(handle);
         }
-
-        self.set_status(EngineStatus::Running { pid }, dispatcher);
-        tracing::info!("Engine started: preset='{}', pid={}", preset.id, pid);
-
-        Ok(())
     }
 
     pub fn stop(&self, dispatcher: &impl EngineEventDispatcher) -> Result<(), EngineError> {
-        let mut process_lock = self.process.lock()
+        let mut state_lock = self.state.lock()
             .map_err(|_| {
-                tracing::error!("Process lock poisoned (stop phase).");
+                tracing::error!("State lock poisoned (stop phase).");
                 self.set_status(EngineStatus::Error { message: "Internal Error: State poisoned".into(), code: None }, dispatcher);
-                EngineError::IoError("Process lock poisoned".into())
+                EngineError::IoError("State lock poisoned".into())
             })?;
 
-        let mut handle = process_lock.take().ok_or(EngineError::NotRunning)?;
+        match std::mem::replace(&mut *state_lock, EngineState::Stopping) {
+            EngineState::Idle => {
+                *state_lock = EngineState::Idle;
+                Err(EngineError::NotRunning)
+            }
+            EngineState::Stopping => {
+                *state_lock = EngineState::Stopping;
+                Ok(())
+            }
+            EngineState::Starting { cancel } => {
+                let _ = cancel.send(());
+                *state_lock = EngineState::Idle;
+                self.set_status(EngineStatus::Stopped, dispatcher);
+                tracing::info!("Engine startup cancelled.");
+                Ok(())
+            }
+            EngineState::Running { mut handle } => {
+                *state_lock = EngineState::Stopping;
+                drop(state_lock);
 
-        /* 
-           Graceful shutdown: give winws 500ms to finish processing current
-           network packets before forcing termination. 
-        */
-        handle.kill_graceful();
+                handle.kill_graceful();
 
-        self.set_status(EngineStatus::Stopped, dispatcher);
-        tracing::info!("Engine stopped.");
-
-        Ok(())
+                let mut state_lock = self.state.lock()
+                    .map_err(|_| EngineError::IoError("State lock poisoned after kill".into()))?;
+                *state_lock = EngineState::Idle;
+                self.set_status(EngineStatus::Stopped, dispatcher);
+                tracing::info!("Engine stopped.");
+                Ok(())
+            }
+            EngineState::Failed(_) => {
+                *state_lock = EngineState::Idle;
+                self.set_status(EngineStatus::Stopped, dispatcher);
+                Ok(())
+            }
+        }
     }
 
     pub fn current_status(&self) -> EngineStatus {
@@ -329,39 +259,352 @@ impl EngineManager {
         }
         dispatcher.emit_status(&new_status);
     }
+}
+
+async fn spawn_and_run(
+    preset: &Preset,
+    app: &AppHandle,
+    _cancel_rx: tokio::sync::oneshot::Receiver<()>,
+) -> Result<ProcessHandle, EngineError> {
+    let winws_path = EngineManager::resolve_binary_path(app)?;
+    let working_dir = winws_path.parent()
+        .ok_or_else(|| EngineError::BinaryNotFound(
+            format!("Binary path'in parent klasörü alınamadı: {:?}", winws_path)
+        ))?;
+
+    let prepared_args = EngineManager::prepare_args(&preset.args);
 
     #[cfg(target_os = "linux")]
-    fn ensure_linux_capabilities(binary_path: &std::path::Path) -> Result<(), EngineError> {
+    let mut cancel_rx = _cancel_rx;
 
-        if is_elevated() {
-            return Ok(());
-        }
-
-        let output = std::process::Command::new("getcap")
-            .arg(binary_path)
-            .output()
-            .map_err(|e| EngineError::IoError(format!("getcap çalıştırılamadı: {}", e)))?;
-            
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if stdout.contains("cap_net_admin") && stdout.contains("cap_net_raw") {
-            return Ok(()); 
-        }
-
-        tracing::info!("Binary yetkileri eksik. pkexec ile setcap isteniyor...");
-        let setcap_arg = "cap_net_admin,cap_net_raw+ep";
+    #[cfg(target_os = "linux")]
+    {
+        let binary_path_str = winws_path.to_string_lossy();
+        let args_str = prepared_args.join(" ");
         
-        let pkexec_status = std::process::Command::new("pkexec")
-            .arg("setcap")
-            .arg(setcap_arg)
-            .arg(binary_path)
-            .status()
-            .map_err(|e| EngineError::IoError(format!("pkexec çalıştırılamadı: {}", e)))?;
+        let script = format!(
+            "clean_up() {{ \
+                 if [ -n \"$ENGINE_PID\" ]; then kill \"$ENGINE_PID\" 2>/dev/null; fi; \
+                 if command -v nft >/dev/null 2>&1; then \
+                     nft delete table ip vane_mangle 2>/dev/null; \
+                 else \
+                     iptables -t mangle -D OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 200 2>/dev/null; \
+                 fi; \
+             }}; \
+             trap clean_up EXIT INT TERM HUP; \
+             killall nfqws-x86_64-unknown-linux-gnu 2>/dev/null; \
+             if command -v nft >/dev/null 2>&1; then \
+                 nft delete table ip vane_mangle 2>/dev/null; \
+                 nft add table ip vane_mangle || exit 1; \
+                 nft add chain ip vane_mangle output '{{ type filter hook output priority mangle; policy accept; }}' || exit 1; \
+                 nft add rule ip vane_mangle output tcp dport '{{ 80, 443 }}' queue num 200 || exit 1; \
+             else \
+                 iptables -t mangle -D OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 200 2>/dev/null; \
+                 iptables -t mangle -I OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 200 || exit 1; \
+             fi; \
+             \"{}\" {} & ENGINE_PID=$!; \
+             echo \"READY:$ENGINE_PID\"; \
+             cat > /dev/null",
+            binary_path_str, args_str
+        );
 
-        if pkexec_status.success() {
-            tracing::info!("setcap applied successfully!");
-            Ok(())
+        let can_run_directly = {
+            let uid_output = std::process::Command::new("id")
+                .arg("-u")
+                .output();
+            let is_root = match uid_output {
+                Ok(out) => {
+                    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                    s == "0"
+                }
+                _ => false,
+            };
+            is_root || std::process::Command::new("iptables")
+                .args(["-t", "mangle", "-L"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+                || std::process::Command::new("nft")
+                .args(["list", "tables"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+        };
+
+        let mut root_cmd = if can_run_directly {
+            std::process::Command::new("sh")
         } else {
-            Err(EngineError::InsufficientPrivileges)
+            let mut cmd = std::process::Command::new("pkexec");
+            cmd.arg("sh");
+            cmd
+        };
+
+        root_cmd.arg("-c")
+            .arg(&script)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        let mut child = tokio::process::Command::from(root_cmd).spawn().map_err(|e| {
+            EngineError::SpawnFailed(format!("Linux Root Wrapper could not be started: {}", e))
+        })?;
+
+        let stdout = child.stdout.take().ok_or_else(|| EngineError::IoError("Stdout alınamadı".into()))?;
+        let mut reader = tokio::io::BufReader::new(stdout);
+        let mut line = String::new();
+        use tokio::io::AsyncBufReadExt;
+        
+        tokio::select! {
+            res = reader.read_line(&mut line) => {
+                match res {
+                    Ok(n) if n > 0 && line.trim().starts_with("READY") => {
+                        tracing::info!("Linux Root Wrapper aktif: {}", line.trim());
+                    }
+                    _ => {
+                        let _ = child.start_kill();
+                        return Err(EngineError::AuthorizationFailed("Authorization denied or script error.".into()));
+                    }
+                }
+            }
+            _ = &mut cancel_rx => {
+                tracing::info!("Spawn cancelled during PolicyKit wait.");
+                let _ = child.start_kill();
+                return Err(EngineError::NotRunning);
+            }
+        }
+
+        child.stdout = Some(reader.into_inner());
+        let pid = child.id().unwrap_or(0);
+        tracing::info!("Engine process spawned successfully, PID: {}", pid);
+
+        let stdout = child.stdout.take().ok_or_else(|| EngineError::IoError("stdout pipe oluşturulamadı".into()))?;
+        let stderr = child.stderr.take().ok_or_else(|| EngineError::IoError("stderr pipe oluşturulamadı".into()))?;
+
+        crate::engine::logger::spawn_log_reader(stdout, app.clone(), None);
+        crate::engine::logger::spawn_log_reader(stderr, app.clone(), Some("HATA: "));
+
+        let handle = ProcessHandle::new(child, pid, None);
+        Ok(handle)
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let mut command = std::process::Command::new(&winws_path);
+        command.args(&prepared_args)
+            .current_dir(working_dir)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(CREATE_NO_WINDOW);
+        
+        let mut child = tokio::process::Command::from(command).spawn().map_err(|e| {
+            tracing::error!("Process could not be started: {}", e);
+            EngineError::SpawnFailed(e.to_string())
+        })?;
+
+        let pid = child.id().unwrap_or(0);
+        tracing::info!("Engine process spawned successfully, PID: {}", pid);
+
+        let job_guard = match JobObjectGuard::new().and_then(|j| j.assign(pid).map(|_| j)) {
+            Ok(j) => {
+                tracing::info!("winws PID {} Job Object'a atandı.", pid);
+                Some(j)
+            }
+            Err(e) => {
+                tracing::error!("Job Object could not be assigned: {}", e);
+                let _ = child.start_kill();
+                let _ = child.wait().await;
+                return Err(EngineError::IoError(
+                    format!("Kernel-level process guard (Job Object) could not be created: {}", e)
+                ));
+            }
+        };
+
+        let stdout = child.stdout.take().ok_or_else(|| EngineError::IoError("stdout pipe oluşturulamadı".into()))?;
+        let stderr = child.stderr.take().ok_or_else(|| EngineError::IoError("stderr pipe oluşturulamadı".into()))?;
+
+        crate::engine::logger::spawn_log_reader(stdout, app.clone(), None);
+        crate::engine::logger::spawn_log_reader(stderr, app.clone(), Some("HATA: "));
+
+        let handle = ProcessHandle::new(child, pid, job_guard);
+        Ok(handle)
+    }
+}
+
+fn watch_process(
+    pid: u32,
+    app: AppHandle,
+    state: Arc<Mutex<EngineState>>,
+    status: Arc<Mutex<EngineStatus>>,
+    preset: Preset,
+) -> futures::future::BoxFuture<'static, ()> {
+    use futures::FutureExt;
+    async move {
+        let mut attempt = 0;
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+            let active = is_state_running_with_pid(&state, pid);
+
+            if !active {
+                break;
+            }
+
+            if !is_process_alive(pid) {
+                tracing::warn!("Engine process (PID {}) died unexpectedly.", pid);
+
+                let backoff_secs = match attempt {
+                    0 => 1,
+                    1 => 2,
+                    2 => 4,
+                    3 => 8,
+                    4 => 16,
+                    _ => {
+                        tracing::error!("Engine restart limit reached. Transitioning to Failed.");
+                        set_state_failed(&state, EngineError::IoError("Engine crashed repeatedly".into()));
+                        set_status_error(&status, &app, "Süreç çöktü ve yeniden başlatılamadı.".into(), Some("CRASH_RESTART_FAILED".into()));
+                        break;
+                    }
+                };
+
+                tracing::info!("Attempting engine restart in {}s (attempt {}/5)...", backoff_secs, attempt + 1);
+                tokio::time::sleep(std::time::Duration::from_secs(backoff_secs)).await;
+
+                let still_running = is_state_running_with_pid(&state, pid);
+
+                if still_running {
+                    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+                    set_state_starting(&state, tx);
+                    set_status_starting(&status, &app);
+
+                    match spawn_and_run(&preset, &app, rx).await {
+                        Ok(new_handle) => {
+                            let new_pid = new_handle.pid();
+                            
+                            let cancelled = is_status_stopped(&status);
+                            if cancelled {
+                                drop(new_handle);
+                                set_state_idle(&state);
+                                set_status_stopped(&status, &app);
+                                break;
+                            }
+
+                            set_state_running(&state, new_handle);
+                            set_status_running(&status, &app, new_pid);
+
+                            tracing::info!("Engine successfully restarted, new PID: {}", new_pid);
+                            let state_clone = state.clone();
+                            let status_clone = status.clone();
+                            let app_clone = app.clone();
+                            let preset_clone = preset.clone();
+                            tokio::spawn(async move {
+                                watch_process(new_pid, app_clone, state_clone, status_clone, preset_clone).await;
+                            });
+                            break;
+                        }
+                        Err(e) => {
+                            tracing::error!("Engine restart attempt failed: {}", e);
+                            attempt += 1;
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+    }.boxed()
+}
+
+// Non-async helper functions to perform Mutex operations and drop guards immediately
+fn is_state_running_with_pid(state: &Mutex<EngineState>, pid: u32) -> bool {
+    if let Ok(sl) = state.lock() {
+        if let EngineState::Running { handle } = &*sl {
+            return handle.pid() == pid;
         }
     }
+    false
+}
+
+fn set_state_starting(state: &Mutex<EngineState>, cancel_tx: tokio::sync::oneshot::Sender<()>) {
+    if let Ok(mut sl) = state.lock() {
+        *sl = EngineState::Starting { cancel: cancel_tx };
+    }
+}
+
+fn set_state_running(state: &Mutex<EngineState>, handle: ProcessHandle) {
+    if let Ok(mut sl) = state.lock() {
+        *sl = EngineState::Running { handle };
+    }
+}
+
+fn set_state_failed(state: &Mutex<EngineState>, err: EngineError) {
+    if let Ok(mut sl) = state.lock() {
+        *sl = EngineState::Failed(err);
+    }
+}
+
+fn set_state_idle(state: &Mutex<EngineState>) {
+    if let Ok(mut sl) = state.lock() {
+        *sl = EngineState::Idle;
+    }
+}
+
+fn set_status_error(status: &Mutex<EngineStatus>, app: &AppHandle, msg: String, code: Option<String>) {
+    if let Ok(mut st) = status.lock() {
+        *st = EngineStatus::Error { message: msg, code };
+        let _ = app.emit("engine_status", &*st);
+    }
+}
+
+fn set_status_starting(status: &Mutex<EngineStatus>, app: &AppHandle) {
+    if let Ok(mut st) = status.lock() {
+        *st = EngineStatus::Starting;
+        let _ = app.emit("engine_status", &*st);
+    }
+}
+
+fn set_status_running(status: &Mutex<EngineStatus>, app: &AppHandle, pid: u32) {
+    if let Ok(mut st) = status.lock() {
+        *st = EngineStatus::Running { pid };
+        let _ = app.emit("engine_status", &*st);
+    }
+}
+
+fn is_status_stopped(status: &Mutex<EngineStatus>) -> bool {
+    if let Ok(st) = status.lock() {
+        *st == EngineStatus::Stopped
+    } else {
+        false
+    }
+}
+
+fn set_status_stopped(status: &Mutex<EngineStatus>, app: &AppHandle) {
+    if let Ok(mut st) = status.lock() {
+        *st = EngineStatus::Stopped;
+        let _ = app.emit("engine_status", &*st);
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn is_process_alive(pid: u32) -> bool {
+    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+    use windows::Win32::System::Threading::GetExitCodeProcess;
+    use windows::Win32::Foundation::{CloseHandle, FALSE};
+
+    unsafe {
+        let handle = match OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid) {
+            Ok(h) => h,
+            Err(_) => return false,
+        };
+        let mut exit_code = 0;
+        let ok = GetExitCodeProcess(handle, &mut exit_code).is_ok();
+        let _ = CloseHandle(handle);
+        ok && exit_code == 259
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn is_process_alive(pid: u32) -> bool {
+    unsafe { libc::kill(pid as libc::pid_t, 0) == 0 }
 }
