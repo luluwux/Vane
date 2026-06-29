@@ -72,11 +72,22 @@ export function WidgetView() {
   };
 
   useEffect(() => {
+    let hasGainedFocus = false;
+    let isGracePeriod = true;
+
+    const timer = setTimeout(() => {
+      isGracePeriod = false;
+    }, 2000);
+
     const setupFocusListener = async () => {
       const windowObj = getCurrentWebviewWindow();
       const unlisten = await windowObj.onFocusChanged(({ payload: focused }) => {
-        if (!focused) {
-          windowObj.hide();
+        if (focused) {
+          hasGainedFocus = true;
+        } else {
+          if (!isGracePeriod && hasGainedFocus) {
+            windowObj.hide();
+          }
         }
       });
       return unlisten;
@@ -85,6 +96,7 @@ export function WidgetView() {
     let unlistenPromise = setupFocusListener();
 
     return () => {
+      clearTimeout(timer);
       unlistenPromise.then((unlisten) => unlisten());
     };
   }, []);
