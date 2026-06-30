@@ -5,7 +5,7 @@
 <h1 align="center">Vane DPI</h1>
 
 <p align="center">
-  <strong>The Ultimate DPI Bypass & Network Security Control Center</strong>
+  <strong>The Ultimate DPI Bypass and Network Security Control Center</strong>
 </p>
 
 <p align="center">
@@ -23,14 +23,20 @@
   - [2.3. Block Injection (RST and Redirects)](#23-block-injection-rst-and-redirects)
   - [2.4. DNS Poisoning](#24-dns-poisoning)
 - [3. Zapret Architecture and nfqws/winws Core](#3-zapret-architecture-and-nfqwswinws-core)
-- [4. Advanced Evasion Techniques Explained](#4-advanced-evasion-techniques-explained)
-  - [4.1. TCP Segmentation and Ordering](#41-tcp-segmentation-and-ordering)
+- [4. Advanced Evasion Techniques and Evasion Mechanics](#4-advanced-evasion-techniques-and-evasion-mechanics)
+  - [4.1. TCP Segmentation and Ordering Options](#41-tcp-segmentation-and-ordering-options)
   - [4.2. Fake Packet Injection and Fooling Modes](#42-fake-packet-injection-and-fooling-modes)
-  - [4.3. Sequence Number Overlap (seqovl)](#43-sequence-number-overlap-seqovl)
-  - [4.4. IP ID Assignment Schemes](#44-ip-id-assignment-schemes)
-  - [4.5. Handshake Reassembly (Kyber and Fragmented ClientHello)](#45-handshake-reassembly-kyber-and-fragmented-clienthello)
-  - [4.6. UDP Desync and QUIC Evasion](#46-udp-desync-and-quic-evasion)
-  - [4.7. Server-Side Response Manipulation (wssize)](#47-server-size-response-manipulation-wssize)
+  - [4.3. Customizing Fake ClientHello Payloads](#43-customizing-fake-clienthello-payloads)
+  - [4.4. Sequence Number Overlaps (seqovl)](#44-sequence-number-overlaps-seqovl)
+  - [4.5. IP ID Assignment Schemes](#45-ip-id-assignment-schemes)
+  - [4.6. Handshake Reassembly (Kyber and Fragmented ClientHello)](#46-handshake-reassembly-kyber-and-fragmented-clienthello)
+  - [4.7. UDP Desync and QUIC/VoIP Evasion](#47-udp-desync-and-quicvoip-evasion)
+  - [4.8. Server-Side Response Manipulation (wssize)](#48-server-side-response-manipulation-wssize)
+  - [4.9. Duplicates Injection](#49-duplicates-injection)
+  - [4.10. Original Packet Modding](#410-original-packet-modding)
+  - [4.11. SYNDATA Mode](#411-syndata-mode)
+  - [4.12. IP Cache Management](#412-ip-cache-management)
+  - [4.13. Connection Tracking (Conntrack)](#413-connection-tracking-conntrack)
 - [5. Vane System Features](#5-vane-system-features)
   - [5.1. DNS Guard (Local DoH/DoT/DoQ forwarder)](#51-dns-guard-local-dohdotdoq-forwarder)
   - [5.2. Safety Controls (Kill Switch and Watchdog)](#52-safety-controls-kill-switch-and-watchdog)
@@ -65,19 +71,19 @@ To design effective evasion strategies, it is critical to understand the archite
 ### 2.2. SNI and Hostname Extraction
 
 DPI appliances inspect the initial handshake phase of encrypted connections.
-- **HTTP**: The system inspects the plain-text `Host:` header in the HTTP request payload.
-- **HTTPS (TLS)**: The system inspects the Server Name Indication (SNI) extension inside the plain-text `ClientHello` packet. If the SNI matches a blocked domain pattern, the inspection system triggers block injection.
+- **HTTP**: The system inspects the plain-text Host: header in the HTTP request payload.
+- **HTTPS (TLS)**: The system inspects the Server Name Indication (SNI) extension inside the plain-text ClientHello packet. If the SNI matches a blocked domain pattern, the inspection system triggers block injection.
 
 ### 2.3. Block Injection (RST and Redirects)
 
 When a forbidden domain is identified:
-- The passive DPI injector sends a spoofed TCP packet with the `RST` or `FIN` flag set to both the client and the server.
+- The passive DPI injector sends a spoofed TCP packet with the RST or FIN flag set to both the client and the server.
 - For HTTP connections, it may send a spoofed HTTP 302 redirect packet pointing to an ISP warning page.
 - If the fake packet arrives at the destination before the real packet, the socket is torn down, resulting in a connection failure.
 
 ### 2.4. DNS Poisoning
 
-Before a TCP connection can be established, the domain name must be resolved. ISPs often intercept UDP/TCP port 53 DNS requests. They either return spoofed IP addresses pointing to block portals (DNS hijacking) or drop the requests entirely. 
+Before a TCP connection can be established, the domain name must be resolved. ISPs often intercept UDP/TCP port 53 DNS requests. They either return spoofed IP addresses pointing to block portals (DNS hijacking) or drop the requests entirely.
 
 ---
 
@@ -91,38 +97,72 @@ The daemon process receives captured packets, parses their transport and applica
 
 ---
 
-## 4. Advanced Evasion Techniques Explained
+## 4. Advanced Evasion Techniques and Evasion Mechanics
 
 This section details the packet-level manipulation methods exposed in Vane's Advanced tab and how they defeat inspection algorithms.
 
-### 4.1. TCP Segmentation and Ordering
+### 4.1. TCP Segmentation and Ordering Options
 
 DPI units rely on high-speed hardware reassembly buffers. If they cannot rebuild the TCP stream, they cannot inspect the payload.
 
-- **split**: Splits the TCP payload at specified markers. For example, splitting a TLS ClientHello packet right in the middle of the SNI domain name forces the DPI to attempt stream reassembly. Many inspection systems cannot handle segmented handshakes due to processing overhead and let the packets pass.
-- **multisplit**: Splits the TCP payload at multiple predefined boundary offsets.
+- **multisplit**: Splits the TCP payload at multiple predefined boundary offsets specified in the split position list.
 - **multidisorder**: Splits the payload and sends the resulting segments in reverse order (e.g., segment 2 is sent before segment 1). The target server's OS TCP/IP stack buffers segment 2, receives segment 1, and reassembles them in the correct order for the application layer. The DPI, however, must maintain state tables for out-of-order packets, which is resource-intensive and often bypassed.
-- **hostfakesplit**: Inserts fake hostname fragments around the real hostname segment, confusing the parser.
+- **fakedsplit**: Performs a single-position split with fake packets interleaved around the segments. It injects decoy data packets before the segments to satisfy the DPI tracking logic. The segments are ordered sequentially.
+- **fakeddisorder**: Similar to fakedsplit but sends the original segments in reverse order.
+- **hostfakesplit**: Specifically designed to hide the hostname. It splits the request around the host header, inserting fake hostnames before and after the real segment.
+
+#### Markers and Split Positions
+Positions for splitting are evaluated dynamically using markers.
+- **method**: Resolves to the start of the HTTP method (GET, POST, etc.).
+- **host**: Resolves to the start of the hostname in HTTP or TLS SNI.
+- **endhost**: Resolves to the byte after the last character of the hostname.
+- **sld**: Resolves to the second-level domain start.
+- **endsld**: Resolves to the byte after the second-level domain.
+- **midsld**: Resolves to the middle of the second-level domain.
+- **sniext**: Resolves to the data field inside the TLS SNI extension.
+
+Example configurations:
+`--dpi-desync-split-pos=method+2,midsld` resolves to method+2 for HTTP, and midsld for TLS connections.
+
+#### Segment Ordering and Altorders
+The parameter `--dpi-desync-fakedsplit-mod=altorder=N` adjusts segment sequencing:
+- **altorder=0**: Fake first segment, real first segment, fake first segment, fake second segment, real second segment, fake second segment.
+- **altorder=1**: Real first segment, fake first segment, fake second segment, real second segment, fake second segment.
+- **altorder=2**: Real first segment, fake second segment, real second segment, fake second segment.
+- **altorder=3**: Real first segment, fake second segment, real second segment.
+- **altorder=8**: Real packet, fake packet.
+- **altorder=16**: Real packet only (fakes are excluded).
 
 ### 4.2. Fake Packet Injection and Fooling Modes
 
-Fake packet injection (`fake`, `fakeknown`) sends a decoy packet containing forbidden keywords (like a fake SNI pointing to a blocked domain) to satisfy the DPI sensor. Once the DPI processes the fake payload, it assumes the session is already blocked or handled and stops tracking it. The client then sends the real packet. To prevent the real server from receiving the fake payload and terminating the connection, we must apply a fooling mode:
+Fake packet injection sends a decoy packet containing forbidden keywords (like a fake SNI pointing to a blocked domain) to satisfy the DPI sensor. Once the DPI processes the fake payload, it assumes the session is already blocked or handled and stops tracking it. The client then sends the real packet. To prevent the real server from receiving the fake payload and terminating the connection, we must apply a fooling mode:
 
-- **ttl**: Sets the Time-To-Live (TTL) on the fake packet to a value just low enough that it reaches the ISP's DPI sensor but drops off the network before reaching the destination server.
-- **badsum**: Generates a fake packet with an incorrect TCP checksum. The destination server's OS discards the packet, but many DPI units ignore checksum validation. Note: This requires setting `net.netfilter.nf_conntrack_checksum=0` on intermediate Linux NAT routers to prevent them from dropping the packet.
-- **badseq**: Uses a sequence number that falls outside the server's active TCP window. The server ignores it as out-of-window noise.
-- **md5sig**: Adds an RFC 2385 MD5 signature option to the TCP header. Most non-Linux servers discard packets with invalid MD5 signatures.
-- **ts**: Appends a spoofed TCP timestamp (TSval) offset, causing the server's Protection Against Wrapped Sequence Numbers (PAWS) mechanism to reject the packet.
-- **autottl**: Measures the TTL of incoming packets from the server, deduces the hop distance, and automatically calibrates the fake packet's TTL value to ensure it expires before reaching the target.
+- **ttl**: Sets the Time-To-Live (TTL) on the fake packet to a value just low enough that it reaches the ISP's DPI sensor but drops off the network before reaching the destination server. Requires testing the hop distance to avoid server-side connection drops. Note that some stock router firmwares overwrite outgoing TTL fields; this option will not work if TTL locking is active.
+- **badsum**: Generates a fake packet with an incorrect TCP checksum. The destination server's OS discards the packet, but many DPI units ignore checksum validation. Note: This requires setting `net.netfilter.nf_conntrack_checksum=0` on intermediate Linux NAT routers to prevent them from dropping the packet. Default home routers (Linux-based) often drop invalid checksum packets in the FORWARD chain unless conntrack checksumming is explicitly disabled.
+- **badseq**: Uses a sequence number that falls outside the server's active TCP window. The server ignores it as out-of-window noise. The default increment is -10000. If the DPI is stateful and tracks window size, this can be ignored by the DPI as well. For complete assurance, setting the increment to 0x80000000 forces the packet entirely outside the sequence space.
+- **md5sig**: Adds an RFC 2385 MD5 signature option to the TCP header. Most non-Linux servers discard packets with invalid MD5 signatures. This option requires extra space in the TCP header and may trigger MTU overflows during fragmented Kyber ClientHello exchanges.
+- **datanoack**: Sends fake packets with the ACK flag unset. Most destination servers discard packets without ACK flags, while DPIs often parse them anyway. This option may conflict with network address translation (NAT) and masquerade configurations on some routers.
+- **ts**: Appends a spoofed TCP timestamp (TSval) offset, causing the server's Protection Against Wrapped Sequence Numbers (PAWS) mechanism to reject the packet. Requires timestamps to be enabled on the client operating system. For Windows, this is enabled using:
+  `netsh interface tcp set global timestamps=enabled`
+- **autottl**: Dynamically measures the TTL of incoming packets from the server, deduces the hop distance, and automatically calibrates the fake packet's TTL value to ensure it expires before reaching the target. It relies on standard base TTL values (64, 128, 255) to determine the hop distance.
 
-### 4.3. Sequence Number Overlap (seqovl)
+### 4.3. Customizing Fake ClientHello Payloads
+
+Vane supports modifying the raw payloads of injected TLS fakes to prevent fingerprint-based block rules:
+- **rnd**: Randomizes the Random and Session ID fields in the TLS structure on every request.
+- **rndsni**: Randomizes the SNI extension using a random second-level domain name and common top-level domain extension.
+- **dupsid**: Copies the Session ID from the original ClientHello packet to make the fake packet appear as part of the same session.
+- **sni=domain**: Rewrites the SNI extension to point to a permitted domain (e.g., iana.org), adjusting internal length headers automatically.
+- **padencap**: Extends the padding extension inside the fake TLS payload by the size of the original packet, ensuring size signature checks are bypassed.
+
+### 4.4. Sequence Number Overlap (seqovl)
 
 The `seqovl` method modifies TCP sequence numbers to create overlapping data ranges.
 - A fake segment is sent with sequence numbers that overlap with the subsequent real segment.
 - When the destination server reassembles the stream, it prioritizes the real data (which arrives later or overwrites the overlap depending on the OS implementation).
-- The DPI sensor, assuming the first incoming data is final, registers the fake data, resulting in a mismatch between what the DPI inspected and what the server processed.
+- The DPI sensor, assuming the first incoming data is final, registers the fake data, resulting in a mismatch between what the DPI inspected and what the server processed. Note: Windows servers do not preserve sequence overlaps in the same manner as Linux/Unix nodes, so seqovl may fail against Windows-hosted sites.
 
-### 4.4. IP ID Assignment Schemes
+### 4.5. IP ID Assignment Schemes
 
 To bypass stateful inspections that monitor IP packet headers for consistency, Vane allows configuring how IP Identification fields are assigned:
 - **seq**: Increments the IP ID sequentially for each injected packet.
@@ -130,21 +170,53 @@ To bypass stateful inspections that monitor IP packet headers for consistency, V
 - **rnd**: Assigns random IP IDs to all packets.
 - **zero**: Forces the IP ID field to zero (Linux/BSD hosts).
 
-### 4.5. Handshake Reassembly (Kyber and Fragmented ClientHello)
+### 4.6. Handshake Reassembly (Kyber and Fragmented ClientHello)
 
 Modern browsers utilize post-quantum cryptography (such as ML-KEM/Kyber) which increases the size of the TLS ClientHello beyond a single MTU limit (typically 1500 bytes). This splits the SNI across packet boundaries naturally.
 - Stateful DPIs reassemble these packets before inspecting.
 - Vane's backend monitors the incoming stream, detects multi-packet handshakes, waits for all fragments to arrive, and then applies the configured desync strategy across the fully reassembled message block before re-injecting.
 
-### 4.6. UDP Desync and QUIC Evasion
+### 4.7. UDP Desync and QUIC/VoIP Evasion
 
 QUIC (HTTP/3) operates over UDP port 443. Unlike TCP, UDP does not support stream segmentation.
 - Evasion is performed by injecting fake UDP payloads (using `fake` or `fakeknown` modes), padding lengths (`udplen`), or utilizing IPv6-specific options.
 - The `udplen` parameter increases or decreases the UDP payload length by a set offset, preventing length-based signature matching.
+- VoIP and Discord voice protocols use high range UDP ports (e.g., 50000-65535). Vane provides presets to apply fake injection specifically to these ranges to stabilize connection state.
 
-### 4.7. Server-Side Response Manipulation (wssize)
+### 4.8. Server-Side Response Manipulation (wssize)
 
 If the DPI blocks connections based on the server's response (e.g., reading the server's certificate in the `ServerHello`), Vane can limit the TCP Window Size (`--wssize`) advertised to the server during the handshake. This forces the server to fragment its response into small segments, preventing the DPI from reading the certificate in a single packet.
+- wssize specifies the scale factor (e.g., `1:6`).
+- It reduces connection throughput during the initial handshake but bypasses server-side SNI inspectors.
+- Once the initial request is transmitted, Vane's internal connection tracker cuts off window size limitation to restore full download speeds.
+
+### 4.9. Duplicates Injection
+
+The `--dup=N` parameter instructs Vane to inject duplicate copies of original packets prior to sending them.
+- Duplicates can be modified with custom TTLs (`--dup-ttl`) or autottl policies (`--dup-autottl`).
+- By introducing duplicates with anomalies (like MD5 signatures or custom flags), the DPI is forced to process contradictory packets, making it drop session tracking.
+
+### 4.10. Original Packet Modding
+
+Vane can modify the headers of original packets. Using `--orig-ttl` or `--orig-autottl`, you can alter the TTL of real data packets. This obscures the signature of the client operating system and forces the DPI to calculate incorrect hop measurements when comparing original and fake flows.
+
+### 4.11. SYNDATA Mode
+
+Normally, TCP SYN packets contain no payload. SYNDATA mode inserts a data payload (typically 16 null bytes or custom data) inside the SYN packet. While the destination OS ignores the payload unless TCP Fast Open (TFO) is active, the DPI attempt to parse this data, causing its tracking engine to lose synchronization with the actual handshake phase.
+
+### 4.12. IP Cache Management
+
+To apply automated TTL adjustments from the first packet of a session, Vane maintains an internal in-memory IP cache.
+- It maps destination IP addresses and network interfaces to calculated hop distances and hostnames.
+- This allows autottl to function instantly for subsequent connections to the same host.
+- The cache lifetime defaults to 2 hours, customizable via `--ipcache-lifetime`.
+
+### 4.13. Connection Tracking (Conntrack)
+
+Vane contains a lightweight stateful connection tracking module to coordinate multi-packet reassembly and window size adjustments.
+- It monitors the state of TCP connections (SYN, ESTABLISHED, FIN) and UDP flows.
+- It dynamically removes inactive connections after timeouts expire.
+- For diagnostic purposes, sending a `SIGUSR1` signal to the daemon triggers a conntrack table dump to standard output.
 
 ---
 
