@@ -305,32 +305,36 @@ fn read_bypass_config(app: &AppHandle) -> (String, String, String, bool) {
 fn apply_kill_switch(enabled: bool) {
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
         let _ = std::process::Command::new("netsh")
             .args(&["advfirewall", "firewall", "delete", "rule", "name=VaneDNSKillSwitch"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
+            .creation_flags(CREATE_NO_WINDOW)
             .status();
 
         if enabled {
             tracing::info!("DNS Kill Switch aktif ediliyor...");
             let _ = std::process::Command::new("netsh")
                 .args(&[
-                    "advfirewall", "firewall", "add", "rule", 
-                    "name=VaneDNSKillSwitch", "dir=out", "action=block", 
+                    "advfirewall", "firewall", "add", "rule",
+                    "name=VaneDNSKillSwitch", "dir=out", "action=block",
                     "protocol=UDP", "remoteport=53"
                 ])
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
+                .creation_flags(CREATE_NO_WINDOW)
                 .status();
-            
+
             let _ = std::process::Command::new("netsh")
                 .args(&[
-                    "advfirewall", "firewall", "add", "rule", 
-                    "name=VaneDNSKillSwitch", "dir=out", "action=block", 
+                    "advfirewall", "firewall", "add", "rule",
+                    "name=VaneDNSKillSwitch", "dir=out", "action=block",
                     "protocol=TCP", "remoteport=53"
                 ])
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
+                .creation_flags(CREATE_NO_WINDOW)
                 .status();
         }
     }
