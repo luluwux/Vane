@@ -127,6 +127,12 @@ interface EngineStore {
   healthCheckTargets: string[];
   bypassMode: 'all' | 'whitelist' | 'blacklist';
   domainList: string;
+  dnsProtocol: 'doh' | 'dot' | 'doq';
+  dnsAdBlock: boolean;
+  dnsCache: boolean;
+  proxySocks5: string;
+  killSwitch: boolean;
+  watchdog: boolean;
 
   // Geçici (session) alanlar
   status: EngineStatus;
@@ -151,6 +157,12 @@ interface EngineStore {
   setHealthCheckTargets: (targets: string[]) => void;
   setBypassMode: (mode: 'all' | 'whitelist' | 'blacklist') => void;
   setDomainList: (list: string) => void;
+  setDnsProtocol: (protocol: 'doh' | 'dot' | 'doq') => void;
+  setDnsAdBlock: (enabled: boolean) => void;
+  setDnsCache: (enabled: boolean) => void;
+  setProxySocks5: (addr: string) => void;
+  setKillSwitch: (enabled: boolean) => void;
+  setWatchdog: (enabled: boolean) => void;
 
   refreshPresets: () => Promise<void>;
   deletePreset: (presetId: string) => Promise<void>;
@@ -177,6 +189,12 @@ export const useEngineStore = create<EngineStore>()(
       advancedConfig: DEFAULT_ADVANCED_CONFIG,
       bypassMode: 'all',
       domainList: '',
+      dnsProtocol: 'doh',
+      dnsAdBlock: false,
+      dnsCache: true,
+      proxySocks5: '',
+      killSwitch: false,
+      watchdog: true,
 
       // Session değerleri (persist edilmez)
       status: { variant: 'stopped' },
@@ -216,6 +234,12 @@ export const useEngineStore = create<EngineStore>()(
       clearLogs: () => set({ logs: [] }),
       setBypassMode: (bypassMode) => set({ bypassMode }),
       setDomainList: (domainList) => set({ domainList }),
+      setDnsProtocol: (dnsProtocol) => set({ dnsProtocol }),
+      setDnsAdBlock: (dnsAdBlock) => set({ dnsAdBlock }),
+      setDnsCache: (dnsCache) => set({ dnsCache }),
+      setProxySocks5: (proxySocks5) => set({ proxySocks5 }),
+      setKillSwitch: (killSwitch) => set({ killSwitch }),
+      setWatchdog: (watchdog) => set({ watchdog }),
 
       appendLog: (content, level = 'info') => set((state) => {
         const newLine: LogLine = {
@@ -346,6 +370,12 @@ export const useEngineStore = create<EngineStore>()(
         healthCheckTargets: state.healthCheckTargets,
         bypassMode: state.bypassMode,
         domainList: state.domainList,
+        dnsProtocol: state.dnsProtocol,
+        dnsAdBlock: state.dnsAdBlock,
+        dnsCache: state.dnsCache,
+        proxySocks5: state.proxySocks5,
+        killSwitch: state.killSwitch,
+        watchdog: state.watchdog,
       }),
     }
   )

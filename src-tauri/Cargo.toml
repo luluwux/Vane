@@ -25,11 +25,12 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "socks"] }
 futures = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 trust-dns-proto = { version = "0.23", default-features = false }
+hickory-resolver = { version = "0.24", default-features = false, features = ["tokio-runtime", "dns-over-rustls"] }
 windows = { version = "0.58", features = ["Win32_UI_WindowsAndMessaging"] }
 minisign-verify = "0.2.5"
 tauri-plugin-dialog = "2.7.0"

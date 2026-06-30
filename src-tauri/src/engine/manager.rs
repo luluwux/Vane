@@ -200,6 +200,8 @@ impl EngineManager {
     }
 
     pub fn stop(&self, dispatcher: &impl EngineEventDispatcher) -> Result<(), EngineError> {
+        apply_kill_switch(false);
+
         let mut state_lock = self.state.lock()
             .map_err(|_| {
                 tracing::error!("State lock poisoned (stop phase).");
@@ -261,8 +263,8 @@ impl EngineManager {
     }
 }
 
-fn read_bypass_config(app: &AppHandle) -> (String, String) {
-    let default_res = ("all".to_string(), "".to_string());
+fn read_bypass_config(app: &AppHandle) -> (String, String, String, bool) {
+    let default_res = ("all".to_string(), "".to_string(), "".to_string(), false);
     let Ok(app_data) = app.path().app_data_dir() else { return default_res; };
     let settings_path = app_data.join("settings.json");
     if !settings_path.exists() {
@@ -287,8 +289,71 @@ fn read_bypass_config(app: &AppHandle) -> (String, String) {
         .and_then(|l| l.as_str())
         .unwrap_or("")
         .to_string();
+    let proxy = state
+        .and_then(|s| s.get("proxySocks5"))
+        .and_then(|p| p.as_str())
+        .unwrap_or("")
+        .to_string();
+    let kill_switch = state
+        .and_then(|s| s.get("killSwitch"))
+        .and_then(|k| k.as_bool())
+        .unwrap_or(false);
 
-    (mode, list)
+    (mode, list, proxy, kill_switch)
+}
+
+fn apply_kill_switch(enabled: bool) {
+    #[cfg(target_os = "windows")]
+    {
+        let _ = std::process::Command::new("netsh")
+            .args(&["advfirewall", "firewall", "delete", "rule", "name=VaneDNSKillSwitch"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+
+        if enabled {
+            tracing::info!("DNS Kill Switch aktif ediliyor...");
+            let _ = std::process::Command::new("netsh")
+                .args(&[
+                    "advfirewall", "firewall", "add", "rule", 
+                    "name=VaneDNSKillSwitch", "dir=out", "action=block", 
+                    "protocol=UDP", "remoteport=53"
+                ])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+            
+            let _ = std::process::Command::new("netsh")
+                .args(&[
+                    "advfirewall", "firewall", "add", "rule", 
+                    "name=VaneDNSKillSwitch", "dir=out", "action=block", 
+                    "protocol=TCP", "remoteport=53"
+                ])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let _ = std::process::Command::new("iptables")
+            .args(&["-D", "OUTPUT", "-p", "udp", "--dport", "53", "-j", "DROP"])
+            .status();
+        let _ = std::process::Command::new("iptables")
+            .args(&["-D", "OUTPUT", "-p", "tcp", "--dport", "53", "-j", "DROP"])
+            .status();
+
+        if enabled {
+            tracing::info!("DNS Kill Switch aktif ediliyor (iptables)...");
+            let _ = std::process::Command::new("iptables")
+                .args(&["-A", "OUTPUT", "-p", "udp", "--dport", "53", "-j", "DROP"])
+                .status();
+            let _ = std::process::Command::new("iptables")
+                .args(&["-A", "OUTPUT", "-p", "tcp", "--dport", "53", "-j", "DROP"])
+                .status();
+        }
+    }
 }
 
 async fn spawn_and_run(
@@ -304,7 +369,11 @@ async fn spawn_and_run(
 
     let mut prepared_args = EngineManager::prepare_args(&preset.args);
 
-    let (bypass_mode, domain_list) = read_bypass_config(app);
+    let (bypass_mode, domain_list, _proxy_socks5, kill_switch) = read_bypass_config(app);
+    
+    // Apply DNS Kill Switch
+    apply_kill_switch(kill_switch);
+
     if bypass_mode == "whitelist" || bypass_mode == "blacklist" {
         if let Ok(app_data) = app.path().app_data_dir() {
             let _ = std::fs::create_dir_all(&app_data);

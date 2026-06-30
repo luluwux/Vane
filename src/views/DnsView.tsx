@@ -86,6 +86,12 @@ export function DnsView() {
     refreshDnsStatus,
     setSelectedDnsId,
     setDnsCustom,
+    dnsProtocol,
+    dnsAdBlock,
+    dnsCache,
+    setDnsProtocol,
+    setDnsAdBlock,
+    setDnsCache,
   } = useEngineStore();
 
   const [forwarder, setForwarder] = useState<ForwarderStatus | null>(null);
@@ -176,8 +182,8 @@ export function DnsView() {
         <div className={styles.fwInfo}>
           <ShieldCheck size={18} color={forwarder?.active ? "#4ade80" : "#a1a1aa"} />
           <div>
-            <strong>Local DoH Forwarder (Port 53)</strong>
-            <span>{forwarder?.active ? `Active — Proxying to ${forwarder.endpoint}` : "Inactive — Standard plain DNS used"}</span>
+            <strong>Local DNS Forwarder (Port 53)</strong>
+            <span>{forwarder?.active ? `Active — Proxying via ${dnsProtocol.toUpperCase()}` : "Inactive — Standard plain DNS used"}</span>
           </div>
         </div>
         <button 
@@ -187,6 +193,62 @@ export function DnsView() {
         >
           {isForwarderLoading ? "..." : forwarder?.active ? "Stop Forwarder" : "Start Forwarder"}
         </button>
+      </div>
+
+      {/* Forwarder Configuration Panel */}
+      <div className={styles.configPanel}>
+        <h3 className={styles.panelTitle}>Forwarder Configuration</h3>
+        <div className={styles.configGrid}>
+          {/* Protocol Selection */}
+          <div className={styles.configItem}>
+            <label className={styles.configLabel}>Transport Protocol</label>
+            <select
+              className={styles.select}
+              value={dnsProtocol}
+              onChange={(e) => setDnsProtocol(e.target.value as 'doh' | 'dot' | 'doq')}
+            >
+              <option value="doh">DNS over HTTPS (DoH)</option>
+              <option value="dot">DNS over TLS (DoT)</option>
+              <option value="doq">DNS over QUIC (DoQ)</option>
+            </select>
+          </div>
+
+          {/* AdBlock Toggle */}
+          <div className={styles.configItemRow}>
+            <div className={styles.toggleText}>
+              <span className={styles.toggleTitle}>Local AdBlock & Malware Filter</span>
+              <span className={styles.toggleDesc}>Block advertising and telemetry domains using StevenBlack list.</span>
+            </div>
+            <div className={styles.switchWrapper}>
+              <input
+                type="checkbox"
+                id="adblock-toggle"
+                className={styles.switchInput}
+                checked={dnsAdBlock}
+                onChange={(e) => setDnsAdBlock(e.target.checked)}
+              />
+              <label htmlFor="adblock-toggle" className={styles.switchLabel} />
+            </div>
+          </div>
+
+          {/* DNS Cache Toggle */}
+          <div className={styles.configItemRow}>
+            <div className={styles.toggleText}>
+              <span className={styles.toggleTitle}>Smart DNS Cache</span>
+              <span className={styles.toggleDesc}>Cache DNS records locally in memory to speed up browsing load times.</span>
+            </div>
+            <div className={styles.switchWrapper}>
+              <input
+                type="checkbox"
+                id="cache-toggle"
+                className={styles.switchInput}
+                checked={dnsCache}
+                onChange={(e) => setDnsCache(e.target.checked)}
+              />
+              <label htmlFor="cache-toggle" className={styles.switchLabel} />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className={styles.grid}>

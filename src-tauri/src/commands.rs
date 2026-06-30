@@ -313,6 +313,7 @@ pub async fn start_doh_forwarder(
     }
 
     let handle = spawn_doh_forwarder(
+        app.clone(),
         state.http_client.clone(),
         DOH_FORWARDER_DEFAULT_PORT,
         DoHEndpoint::Cloudflare,

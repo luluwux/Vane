@@ -57,6 +57,10 @@ export function HomeView() {
   // Remote presets state
   const [remoteStatus, setRemoteStatus] = useState<'idle' | 'syncing' | 'offline' | 'updated'>('idle');
 
+  // Real-time DNS activity graph state
+  const [activityData, setActivityData] = useState<number[]>(new Array(30).fill(0));
+  const activityCountRef = useRef(0);
+
   // Health check targets state
   const [newTarget, setNewTarget] = useState('');
 
@@ -143,9 +147,30 @@ export function HomeView() {
       setRemoteStatus('offline');
     });
 
+    // Listen to dns_activity event
+    const setupDnsListener = async () => {
+      const unlisten = await listen('dns_activity', () => {
+        activityCountRef.current += 1;
+      });
+      return unlisten;
+    };
+
+    let dnsUnlistenPromise = setupDnsListener();
+
+    // Set up a 1-second interval to slide the data
+    const interval = setInterval(() => {
+      setActivityData((prev) => {
+        const next = [...prev.slice(1), activityCountRef.current];
+        activityCountRef.current = 0; // reset for next second
+        return next;
+      });
+    }, 1000);
+
     return () => {
       active = false;
+      clearInterval(interval);
       cleanupFns.forEach((fn) => fn());
+      dnsUnlistenPromise.then((unlisten) => unlisten());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -176,6 +201,21 @@ export function HomeView() {
   };
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  // Generate SVG path for the line
+  const maxVal = Math.max(...activityData, 5); // ensure some minimum height
+  const width = 500;
+  const height = 80;
+  const padding = 5;
+
+  const points = activityData.map((val, idx) => {
+    const x = (idx / (activityData.length - 1)) * (width - padding * 2) + padding;
+    const y = height - (val / maxVal) * (height - padding * 2) - padding;
+    return { x, y };
+  });
+
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const areaD = `${pathD} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`;
 
   const handleInstallUpdate = async () => {
     try {
@@ -231,6 +271,38 @@ export function HomeView() {
           </div>
         </div>
       )}
+      {/* ─── Real-Time Analytics Card ────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.02 }}
+        className={styles.infoCard}
+      >
+        <h3 className={styles.cardTitle}>Real-time DNS Activity</h3>
+        <p style={{ fontSize: 10, color: '#888', margin: '0 0 8px 0' }}>
+          Monitors incoming DNS forwarder queries per second.
+        </p>
+        
+        <div style={{ position: 'relative', width: '100%', height: `${height}px`, background: 'rgba(0, 0, 0, 0.2)', borderRadius: 6, overflow: 'hidden' }}>
+          <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: 'block' }}>
+            <defs>
+              <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
+            {/* Area */}
+            <path d={areaD} fill="url(#chartGrad)" />
+            {/* Line */}
+            <path d={pathD} fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          
+          <div style={{ position: 'absolute', top: 6, right: 8, fontSize: 10, color: '#60a5fa', fontWeight: 'bold' }}>
+            {activityData[activityData.length - 1]} Q/s
+          </div>
+        </div>
+      </motion.div>
+
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
