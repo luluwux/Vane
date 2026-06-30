@@ -149,5 +149,24 @@
     "isCustom": false,
     "priority": 1,
     "category": "fragment"
+  },
+  {
+    "id": "tr-1",
+    "label": "TR 1",
+    "description": "Custom configuration optimized for Turkish network providers.",
+    "icon": "⚙️",
+    "args": [
+      "--wf-tcp=80,443",
+      "--wf-udp=443",
+      "--dpi-desync=split",
+      "--dpi-desync-any-protocol",
+      "--dpi-desync-cutoff=d3",
+      "--dpi-desync-split-pos=4",
+      "--dpi-desync-fooling=md5sig",
+      "--dpi-desync-autottl"
+    ],
+    "isCustom": false,
+    "priority": 1,
+    "category": "standard"
   }
 ]
