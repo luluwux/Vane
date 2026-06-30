@@ -125,6 +125,8 @@ interface EngineStore {
   dnsCustomSecondary: string;
   advancedConfig: AdvancedConfig;
   healthCheckTargets: string[];
+  bypassMode: 'all' | 'whitelist' | 'blacklist';
+  domainList: string;
 
   // Geçici (session) alanlar
   status: EngineStatus;
@@ -147,6 +149,8 @@ interface EngineStore {
   clearLogs: () => void;
   setActiveTab: (tab: AppTab) => void;
   setHealthCheckTargets: (targets: string[]) => void;
+  setBypassMode: (mode: 'all' | 'whitelist' | 'blacklist') => void;
+  setDomainList: (list: string) => void;
 
   refreshPresets: () => Promise<void>;
   deletePreset: (presetId: string) => Promise<void>;
@@ -171,6 +175,8 @@ export const useEngineStore = create<EngineStore>()(
       dnsCustomPrimary: '',
       dnsCustomSecondary: '',
       advancedConfig: DEFAULT_ADVANCED_CONFIG,
+      bypassMode: 'all',
+      domainList: '',
 
       // Session değerleri (persist edilmez)
       status: { variant: 'stopped' },
@@ -208,6 +214,8 @@ export const useEngineStore = create<EngineStore>()(
       setActiveTab: (tab) => set({ activeTab: tab }),
       setHealthCheckTargets: (targets) => set({ healthCheckTargets: targets }),
       clearLogs: () => set({ logs: [] }),
+      setBypassMode: (bypassMode) => set({ bypassMode }),
+      setDomainList: (domainList) => set({ domainList }),
 
       appendLog: (content, level = 'info') => set((state) => {
         const newLine: LogLine = {
@@ -336,6 +344,8 @@ export const useEngineStore = create<EngineStore>()(
         dnsCustomSecondary: state.dnsCustomSecondary,
         advancedConfig: state.advancedConfig,
         healthCheckTargets: state.healthCheckTargets,
+        bypassMode: state.bypassMode,
+        domainList: state.domainList,
       }),
     }
   )

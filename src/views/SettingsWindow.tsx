@@ -6,6 +6,7 @@ import { LogView } from './LogView';
 import { AdvancedView } from './AdvancedView';
 import { DnsView } from './DnsView';
 import { FeedbackView } from './FeedbackView';
+import { PatternView } from './PatternView';
 import { useEngineStore } from '../store/engineStore';
 import styles from './SettingsWindow.module.css';
 
@@ -122,13 +123,7 @@ export function SettingsWindow() {
             {activeTab === 'connection' && <LogView />}
             {activeTab === 'dns' && <DnsView />}
             {activeTab === 'advanced' && <AdvancedView />}
-            {activeTab === 'pattern' && (
-              <div className={styles.comingSoon}>
-                <Layers size={32} strokeWidth={1.2} className={styles.comingSoonIcon} />
-                <span className={styles.comingSoonTitle}>Coming Soon</span>
-                <span className={styles.comingSoonSub}>Pattern management is under development.</span>
-              </div>
-            )}
+            {activeTab === 'pattern' && <PatternView />}
             {activeTab === 'feedback' && <FeedbackView />}
           </div>
         </main>

@@ -261,6 +261,36 @@ impl EngineManager {
     }
 }
 
+fn read_bypass_config(app: &AppHandle) -> (String, String) {
+    let default_res = ("all".to_string(), "".to_string());
+    let Ok(app_data) = app.path().app_data_dir() else { return default_res; };
+    let settings_path = app_data.join("settings.json");
+    if !settings_path.exists() {
+        return default_res;
+    }
+    let Ok(content) = std::fs::read_to_string(settings_path) else { return default_res; };
+    let Ok(file_json) = serde_json::from_str::<serde_json::Value>(&content) else { return default_res; };
+    let Some(zustand_raw) = file_json.get("vane-settings") else { return default_res; };
+    let Ok(zustand_json) = (match zustand_raw {
+        serde_json::Value::String(s) => serde_json::from_str::<serde_json::Value>(s),
+        obj => Ok(obj.clone()),
+    }) else { return default_res; };
+
+    let state = zustand_json.get("state");
+    let mode = state
+        .and_then(|s| s.get("bypassMode"))
+        .and_then(|m| m.as_str())
+        .unwrap_or("all")
+        .to_string();
+    let list = state
+        .and_then(|s| s.get("domainList"))
+        .and_then(|l| l.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    (mode, list)
+}
+
 async fn spawn_and_run(
     preset: &Preset,
     app: &AppHandle,
@@ -272,7 +302,25 @@ async fn spawn_and_run(
             format!("Binary path'in parent klasörü alınamadı: {:?}", winws_path)
         ))?;
 
-    let prepared_args = EngineManager::prepare_args(&preset.args);
+    let mut prepared_args = EngineManager::prepare_args(&preset.args);
+
+    let (bypass_mode, domain_list) = read_bypass_config(app);
+    if bypass_mode == "whitelist" || bypass_mode == "blacklist" {
+        if let Ok(app_data) = app.path().app_data_dir() {
+            let _ = std::fs::create_dir_all(&app_data);
+            let domains_file_path = app_data.join("domains.txt");
+            if let Err(e) = std::fs::write(&domains_file_path, &domain_list) {
+                tracing::error!("Could not write domains.txt: {}", e);
+            } else {
+                let file_path_str = domains_file_path.to_string_lossy().to_string();
+                if bypass_mode == "whitelist" {
+                    prepared_args.push(format!("--hostlist={}", file_path_str));
+                } else {
+                    prepared_args.push(format!("--hostlist-exclude={}", file_path_str));
+                }
+            }
+        }
+    }
 
     #[cfg(target_os = "linux")]
     let mut cancel_rx = _cancel_rx;
