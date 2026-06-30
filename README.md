@@ -1,191 +1,286 @@
-# Multilanguage README
+<p align="center">
+  <img src="src-tauri/icons/icon.png" width="160" alt="Vane Logo">
+</p>
 
-[English](#english) | [Türkçe](#türkçe)
+<h1 align="center">Vane DPI</h1>
 
----
+<p align="center">
+  <strong>The Ultimate DPI Bypass & Network Security Control Center</strong>
+</p>
 
-# English
-
-Vane DPI is a professional, high-performance graphical frontend and network control center designed for the zapret deep packet inspection circumvention engine (winws on Windows, nfqws on Linux). It provides an intuitive user interface to manage, configure, and automate network level DPI bypass strategies, secure DNS routing, and firewall rules without requiring command-line interaction.
-
-## Features
-
-- **Graphical Controller**: Seamless management of the underlying zapret daemon (start, stop, status tracking).
-- **DNS Guard (Local DoH Forwarder)**: Runs a local DNS loopback server supporting DNS-over-HTTPS (DoH), DNS-over-TLS (DoT), and DNS-over-QUIC (DoQ). Includes smart DNS caching and built-in local AdBlock/Malware protection using StevenBlack hosts list.
-- **Safety and Privacy Controls**:
-  - **DNS Leak Protection (Kill Switch)**: Activates firewall rules blocking outbound TCP/UDP port 53 traffic to ensure all DNS requests are securely routed.
-  - **Auto-Recovery Watchdog**: Continuously monitors internet access by querying user-defined target hosts and automatically triggers tunnel recovery on connection drops.
-  - **SOCKS5 Upstream Proxy**: Allows routing encrypted DNS lookups through local or remote SOCKS5 proxies (such as Tor) for maximum anonymity.
-- **Categorized Log Output**: Live console with custom tag badges (MOTOR, DNS, ADBLOCK, GÜVENLİK, SİSTEM, GÜNCELLEME, HATA, UYARI) to easily track daemon status and network changes.
-- **Built-in Presets**: Pre-configured strategies for various network restrictions, including the TR 1 preset specifically optimized for Turkish ISPs.
-- **Remote Preset Sync**: Pulls signed preset updates from a remote repository with Minisign (Ed25519) cryptographic signature verification.
-- **Auto-Start**: Integrates with Windows Task Scheduler to launch elevated on system startup without prompt screens.
+<p align="center">
+  <a href="README.tr.md">[![tr](https://img.shields.io/badge/lang-tr-blue.svg)](README.tr.md)</a>
+</p>
 
 ---
 
-## How It Works
+## Table of Contents
 
-Vane interfaces with the low-level packet capture driver (WinDivert on Windows, NFQUEUE on Linux) to intercept and modify outgoing network packets. It uses packet manipulation techniques to bypass passive and active DPI systems.
-
-### DPI Desync Mechanics
-
-DPI bypass works by confusing the inspection appliances of your ISP without breaking the state of the destination server.
-
-- **TCP Segmentation (split, multidisorder)**: Splits HTTP requests or TLS ClientHello packets into tiny TCP segments. For example, dividing the SNI host header across segment boundaries prevents the DPI sensor from matching the host block list. Sending segments out-of-order (multidisorder) further confuses DPI.
-- **Fake Packet Injection (fake, fakeknown)**: Injects fake TCP packets carrying invalid or decoy SNI hostnames before sending the real payload. The DPI inspects the fake payload and stops tracking the connection, while the server drops it based on one of the fooling modes.
-- **Fooling Modes**:
-  - **ttl**: Lowers the Time-To-Live (TTL) value on fake packets so they expire and drop off the network before reaching the server, while still passing through the ISP's DPI sensor.
-  - **badsum**: Generates fake packets with invalid checksums. The server drops them, but many DPI units ignore checksum validation. Requires disabling checksum drop filters on your router.
-  - **badseq**: Uses an out-of-window sequence number on fake packets so the server discards them immediately.
-  - **md5sig**: Appends an MD5 TCP option to fakes, causing non-Linux servers to drop them.
-  - **ts**: Shifts the TCP timestamp (TSval) value of fakes to fall outside the server's accepted window.
-  - **autottl**: Dynamically calculates the hop distance to the server and adjusts the fake packet TTL.
-- **Out-of-Band (OOB) Signals**: Sends OOB signals to saturate stateful firewall sensors.
-- **SYNDATA Mode**: Inserts SYN packet data payloads to confuse connection tracking.
-
----
-
-## Technical Details
-
-### DNS Guard Configuration
-The local DNS forwarder runs on loopback `127.0.0.127:5353`. It is enabled automatically if an ISP resolver is detected.
-
-### Safety Configuration
-- **Kill Switch**: Configures system firewall rules to block native port 53 traffic. Rules are cleared automatically when Vane stops.
-- **Watchdog Targets**: Sends ICMP/HTTP queries to specified domains (maximum 3 targets) to verify bypass functionality.
+- [1. Overview and Project Goals](#1-overview-and-project-goals)
+- [2. How Deep Packet Inspection (DPI) Works](#2-how-deep-packet-inspection-dpi-works)
+  - [2.1. Passive DPI vs Active DPI](#21-passive-dpi-vs-active-dpi)
+  - [2.2. SNI and Hostname Extraction](#22-sni-and-hostname-extraction)
+  - [2.3. Block Injection (RST and Redirects)](#23-block-injection-rst-and-redirects)
+  - [2.4. DNS Poisoning](#24-dns-poisoning)
+- [3. Zapret Architecture and nfqws/winws Core](#3-zapret-architecture-and-nfqwswinws-core)
+- [4. Advanced Evasion Techniques Explained](#4-advanced-evasion-techniques-explained)
+  - [4.1. TCP Segmentation and Ordering](#41-tcp-segmentation-and-ordering)
+  - [4.2. Fake Packet Injection and Fooling Modes](#42-fake-packet-injection-and-fooling-modes)
+  - [4.3. Sequence Number Overlap (seqovl)](#43-sequence-number-overlap-seqovl)
+  - [4.4. IP ID Assignment Schemes](#44-ip-id-assignment-schemes)
+  - [4.5. Handshake Reassembly (Kyber and Fragmented ClientHello)](#45-handshake-reassembly-kyber-and-fragmented-clienthello)
+  - [4.6. UDP Desync and QUIC Evasion](#46-udp-desync-and-quic-evasion)
+  - [4.7. Server-Side Response Manipulation (wssize)](#47-server-size-response-manipulation-wssize)
+- [5. Vane System Features](#5-vane-system-features)
+  - [5.1. DNS Guard (Local DoH/DoT/DoQ forwarder)](#51-dns-guard-local-dohdotdoq-forwarder)
+  - [5.2. Safety Controls (Kill Switch and Watchdog)](#52-safety-controls-kill-switch-and-watchdog)
+  - [5.3. Upstream Proxy Configuration](#53-upstream-proxy-configuration)
+  - [5.4. Log Output Console with Categorized Badges](#54-log-output-console-with-categorized-badges)
+- [6. Combining Advanced Parameters (Practical Strategies)](#6-combining-advanced-parameters-practical-strategies)
+- [7. Firewall and Linux Integration (Iptables/Nftables)](#7-firewall-and-linux-integration-iptablesnftables)
+- [8. Limitations and When Evasion Fails](#8-limitations-and-when-evasion-fails)
+- [9. Codebase Architecture and Development Guide](#9-codebase-architecture-and-development-guide)
+- [10. Troubleshooting and Diagnostics](#10-troubleshooting-and-diagnostics)
+- [11. Credits and License](#11-credits-and-license)
 
 ---
 
-## Built-in Presets
+## 1. Overview and Project Goals
 
-Vane includes pre-configured, tested default presets:
+Vane DPI is a high-performance network security console and graphical controller developed for the zapret deep packet inspection circumvention suite (winws on Windows, nfqws on Linux). While the low-level zapret engine is exceptionally powerful, configuring it requires managing raw terminal processes, constructing complex command-line arguments, and manually configuring system network adapters and firewall policies. 
 
-- **Default**: Employs fake packet injection with multidisorder. A stable option for most networks.
-- **TR 1**: Optimized desync profile specifically tailored for Turkish network providers. Uses split desync with autottl, md5sig, and multi-protocol enforcement.
-- **Aggressive TTL Strict**: Strict low-TTL fake packet strategy for heavily restricted networks.
-- **Standard Split**: Pure TCP splitting without fake packet injection. Safe and compatible with most home routers.
-- **YouTube and QUIC Focus**: Targets UDP port 443 (QUIC/HTTP3) desync to unblock video streams.
-- **Discord and VoIP Fix**: Prevents RTC/VoIP connection failures by targeting UDP ports 50000-65535.
-- **Deep Fragmentation**: Fine-grained fragmentation (syndata) to hide SNI headers.
-- **Heavy Censorship Evasion**: Multiple packet repeats for strict firewalls.
-- **Lightweight Gaming**: Minimal packet splitting to preserve ping times.
-- **Out-of-Band (OOB)**: Uses OOB signals.
-- **HTTPS SNI Ghost**: Merges fake and syndata for browser performance.
+Vane addresses these challenges by wrapping the daemon in a secure desktop environment. It automates process execution, manages local firewall rules, implements encrypted DNS routing, and performs real-time connection checks. The goal is to provide a central graphical hub for power users, network administrators, and developers to deploy DPI evasion rules safely and efficiently.
 
 ---
 
-## Installation
+## 2. How Deep Packet Inspection (DPI) Works
 
-Download the installer from the Releases section.
+To design effective evasion strategies, it is critical to understand the architecture of the inspection systems deployed by Internet Service Providers (ISPs).
 
-- **Windows**: Launch the installer and run Vane as Administrator to allow kernel driver initialization.
-- **Linux**: Install the `.deb` package or run the `.AppImage`. Run with privileges matching `CAP_NET_ADMIN`.
+### 2.1. Passive DPI vs Active DPI
 
----
+- **Passive DPI**: Installed via network optical splitters or mirror ports (TAP). It receives a copy of the network traffic but does not sit directly in the transmission path. Because it cannot drop original packets, it prevents access by injecting spoofed TCP RST (Reset) packets or HTTP redirects, hoping they reach the client before the server's real response.
+- **Active DPI**: Deployed inline (directly in the transmission path). It can delay, drop, modify, or rate-limit packets in real time. Evasion here is more difficult because the system can drop packets that look suspicious.
 
-## Troubleshooting
+### 2.2. SNI and Hostname Extraction
 
-- **No connection after startup**: Make sure other DPI tools (e.g. GoodbyeDPI) are completely closed. Try switching to the Standard Split preset.
-- **ISP info shows N/A**: The geolocation query was blocked or timed out. The backend will retry periodically.
-- **WinDivert error**: Verify that no other software is holding the driver lock. Run Vane as Administrator.
+DPI appliances inspect the initial handshake phase of encrypted connections.
+- **HTTP**: The system inspects the plain-text `Host:` header in the HTTP request payload.
+- **HTTPS (TLS)**: The system inspects the Server Name Indication (SNI) extension inside the plain-text `ClientHello` packet. If the SNI matches a blocked domain pattern, the inspection system triggers block injection.
 
----
+### 2.3. Block Injection (RST and Redirects)
 
-# Türkçe
+When a forbidden domain is identified:
+- The passive DPI injector sends a spoofed TCP packet with the `RST` or `FIN` flag set to both the client and the server.
+- For HTTP connections, it may send a spoofed HTTP 302 redirect packet pointing to an ISP warning page.
+- If the fake packet arrives at the destination before the real packet, the socket is torn down, resulting in a connection failure.
 
-Vane DPI, derin paket inceleme (DPI) engellerini aşma yazılımı olan zapret (Windows üzerinde winws, Linux üzerinde nfqws) için geliştirilmiş profesyonel, yüksek performanslı bir grafiksel arayüz ve ağ yönetim merkezidir. Kullanıcılara komut satırı kullanmadan DPI atlatma stratejilerini yönetme, güvenli DNS yönlendirmesi sağlama ve güvenlik duvarı kurallarını otomatikleştirme imkanı sunar.
+### 2.4. DNS Poisoning
 
-## Özellikler
-
-- **Grafiksel Kontrolcü**: Zapret servisinin arka planda kolayca yönetilmesi (başlatma, durdurma, durum takibi).
-- **DNS Koruması (Yerel DoH İstemcisi)**: DNS-over-HTTPS (DoH), DNS-over-TLS (DoT) ve DNS-over-QUIC (DoQ) protokollerini destekleyen yerel bir DNS sunucusu çalıştırır. Akıllı DNS önbelleği ve StevenBlack host listesi tabanlı yerleşik reklam/zararlı yazılım engelleme içerir.
-- **Güvenlik ve Proxy Kontrolleri**:
-  - **DNS Sızıntı Koruması (Kill Switch)**: Dışarı giden standart TCP/UDP port 53 trafiğini güvenlik duvarı kuralları ile engelleyerek tüm DNS sorgularının güvenli tünelden geçmesini zorunlu kılar.
-  - **Bağlantı Kurtarma Gözlemcisi (Watchdog)**: Belirlenen hedef adreslere düzenli olarak sorgu göndererek bağlantı durumunu izler ve kesinti durumunda bypass tünelini otomatik olarak kurtarır.
-  - **SOCKS5 Proxy Yönlendirme**: Güvenli DNS sorgularının yerel veya uzak bir SOCKS5 proxy sunucusu (örneğin Tor) üzerinden geçirilmesini sağlayarak gizliliği artırır.
-- **Kategorize Edilmiş Log Çıktısı**: Canlı log akışını etiketler (MOTOR, DNS, ADBLOCK, GÜVENLİK, SİSTEM, GÜNCELLEME, HATA, UYARI) ve renkli rozetler yardımıyla görselleştirerek sistem takibini kolaylaştırır.
-- **Hazır Ayarlar (Presets)**: Çeşitli engelleme türleri için test edilmiş hazır profiller sunar. Türkiye ağ sağlayıcıları için optimize edilmiş TR 1 profili yerleşik olarak gelmektedir.
-- **Uzak Ayar Senkronizasyonu**: Vane-Presets deposundan Minisign (Ed25519) kriptografik imza doğrulaması ile güncel hazır ayarları çeker ve uygular.
-- **Otomatik Başlatma**: Windows Görev Zamanlayıcısı entegrasyonu sayesinde sistem başlangıcında kullanıcı hesabı denetimi (UAC) uyarısı göstermeden yönetici yetkileriyle otomatik başlar.
+Before a TCP connection can be established, the domain name must be resolved. ISPs often intercept UDP/TCP port 53 DNS requests. They either return spoofed IP addresses pointing to block portals (DNS hijacking) or drop the requests entirely. 
 
 ---
 
-## Nasıl Çalışır
+## 3. Zapret Architecture and nfqws/winws Core
 
-Vane, giden ağ paketlerini yakalamak ve değiştirmek için düşük seviyeli paket yakalama sürücüsüyle (Windows'ta WinDivert, Linux'ta NFQUEUE) etkileşime girer. Bu sayede servis sağlayıcıların pasif ve aktif DPI engelleme mekanizmaları atlatılır.
+The underlying engine used by Vane is based on zapret. It utilizes:
+- **WinDivert** on Windows: A kernel-level driver that captures, modifies, and injects network packets using user-space filters.
+- **NFQUEUE** on Linux: An iptables/nftables target that forwards packets to user-space queues for manipulation.
 
-### DPI Desync (Bypass) Yöntemleri
-
-DPI engellemesini aşma prensibi, hedef sunucunun bağlantısını bozmadan servis sağlayıcının filtreleme cihazlarını yanıltmaya dayanır.
-
-- **TCP Segmentasyonu (split, multidisorder)**: HTTP isteklerini veya TLS ClientHello paketlerini küçük parçalara ayırır. Örneğin SNI hostname bilgisini segment sınırları arasına bölerek DPI cihazının engelleme listesindeki domainleri algılamasını önler. Parçaların ters sırada gönderilmesi (multidisorder) atlatma oranını artırır.
-- **Sahte Paket Enjeksiyonu (fake, fakeknown)**: Orijinal paketten önce, içinde geçersiz veya yanıltıcı SNI barındıran sahte TCP paketleri göndererir. DPI cihazı bu sahte paketi inceleyip takibi bırakırken, hedef sunucu fooling ayarları sayesinde bu paketi çöpe atar.
-- **Fooling (Yanıltma) Yöntemleri**:
-  - **ttl**: Sahte paketlerin TTL değerini düşürür. Böylece paketler sunucuya ulaşmadan ağda kaybolur ancak yol üstündeki DPI sensörlerinden geçer.
-  - **badsum**: Sahte paketleri geçersiz TCP sağlama toplamı (checksum) ile gönderir. Sunucu paketi reddeder ancak birçok DPI cihazı checksum doğrulaması yapmaz. Modemde checksum filtresinin kapalı olmasını gerektirebilir.
-  - **badseq**: Sahte paketlerde TCP penceresi dışında kalan geçersiz sıra numaraları kullanır.
-  - **md5sig**: Paketlere MD5 opsiyonu ekler, bu sayede Linux dışındaki sunucular paketi yok sayar.
-  - **ts**: TCP zaman damgasını (TSval) değiştirerek sunucunun paketi reddetmesini sağlar.
-  - **autottl**: Sunucuye olan düğüm uzaklığını (hop count) hesaplayarak sahte paketin TTL değerini otomatik ayarlar.
-- **OOB (Out-of-Band) Sinyalleri**: Güvenlik duvarı sensörlerini yanıltmak için bant dışı TCP verisi gönderir.
-- **SYNDATA Modu**: Bağlantı takibini şaşırtmak için SYN paketi içerisine veri yerleştirir.
+The daemon process receives captured packets, parses their transport and application layers, modifies selected fields based on active filters, and re-injects them into the network stack.
 
 ---
 
-## Teknik Detaylar
+## 4. Advanced Evasion Techniques Explained
 
-### DNS Koruması Yapılandırması
-Yerel DNS yönlendiricisi `127.0.0.127:5353` adresinde çalışır. Servis sağlayıcı DNS'i tespit edildiğinde otomatik devreye girer.
+This section details the packet-level manipulation methods exposed in Vane's Advanced tab and how they defeat inspection algorithms.
 
-### Güvenlik Yapılandırması
-- **Kill Switch**: Giden port 53 trafiğini engellemek için sistem güvenlik duvarını yapılandırır. Kurallar Vane kapatıldığında temizlenir.
-- **Watchdog Hedefleri**: Bağlantının aktifliğini test etmek için belirlenen alan adlarına (en fazla 3 adet) ICMP/HTTP sorguları atar.
+### 4.1. TCP Segmentation and Ordering
+
+DPI units rely on high-speed hardware reassembly buffers. If they cannot rebuild the TCP stream, they cannot inspect the payload.
+
+- **split**: Splits the TCP payload at specified markers. For example, splitting a TLS ClientHello packet right in the middle of the SNI domain name forces the DPI to attempt stream reassembly. Many inspection systems cannot handle segmented handshakes due to processing overhead and let the packets pass.
+- **multisplit**: Splits the TCP payload at multiple predefined boundary offsets.
+- **multidisorder**: Splits the payload and sends the resulting segments in reverse order (e.g., segment 2 is sent before segment 1). The target server's OS TCP/IP stack buffers segment 2, receives segment 1, and reassembles them in the correct order for the application layer. The DPI, however, must maintain state tables for out-of-order packets, which is resource-intensive and often bypassed.
+- **hostfakesplit**: Inserts fake hostname fragments around the real hostname segment, confusing the parser.
+
+### 4.2. Fake Packet Injection and Fooling Modes
+
+Fake packet injection (`fake`, `fakeknown`) sends a decoy packet containing forbidden keywords (like a fake SNI pointing to a blocked domain) to satisfy the DPI sensor. Once the DPI processes the fake payload, it assumes the session is already blocked or handled and stops tracking it. The client then sends the real packet. To prevent the real server from receiving the fake payload and terminating the connection, we must apply a fooling mode:
+
+- **ttl**: Sets the Time-To-Live (TTL) on the fake packet to a value just low enough that it reaches the ISP's DPI sensor but drops off the network before reaching the destination server.
+- **badsum**: Generates a fake packet with an incorrect TCP checksum. The destination server's OS discards the packet, but many DPI units ignore checksum validation. Note: This requires setting `net.netfilter.nf_conntrack_checksum=0` on intermediate Linux NAT routers to prevent them from dropping the packet.
+- **badseq**: Uses a sequence number that falls outside the server's active TCP window. The server ignores it as out-of-window noise.
+- **md5sig**: Adds an RFC 2385 MD5 signature option to the TCP header. Most non-Linux servers discard packets with invalid MD5 signatures.
+- **ts**: Appends a spoofed TCP timestamp (TSval) offset, causing the server's Protection Against Wrapped Sequence Numbers (PAWS) mechanism to reject the packet.
+- **autottl**: Measures the TTL of incoming packets from the server, deduces the hop distance, and automatically calibrates the fake packet's TTL value to ensure it expires before reaching the target.
+
+### 4.3. Sequence Number Overlap (seqovl)
+
+The `seqovl` method modifies TCP sequence numbers to create overlapping data ranges.
+- A fake segment is sent with sequence numbers that overlap with the subsequent real segment.
+- When the destination server reassembles the stream, it prioritizes the real data (which arrives later or overwrites the overlap depending on the OS implementation).
+- The DPI sensor, assuming the first incoming data is final, registers the fake data, resulting in a mismatch between what the DPI inspected and what the server processed.
+
+### 4.4. IP ID Assignment Schemes
+
+To bypass stateful inspections that monitor IP packet headers for consistency, Vane allows configuring how IP Identification fields are assigned:
+- **seq**: Increments the IP ID sequentially for each injected packet.
+- **seqgroup**: Matches the IP ID of the fake segment with its corresponding original segment.
+- **rnd**: Assigns random IP IDs to all packets.
+- **zero**: Forces the IP ID field to zero (Linux/BSD hosts).
+
+### 4.5. Handshake Reassembly (Kyber and Fragmented ClientHello)
+
+Modern browsers utilize post-quantum cryptography (such as ML-KEM/Kyber) which increases the size of the TLS ClientHello beyond a single MTU limit (typically 1500 bytes). This splits the SNI across packet boundaries naturally.
+- Stateful DPIs reassemble these packets before inspecting.
+- Vane's backend monitors the incoming stream, detects multi-packet handshakes, waits for all fragments to arrive, and then applies the configured desync strategy across the fully reassembled message block before re-injecting.
+
+### 4.6. UDP Desync and QUIC Evasion
+
+QUIC (HTTP/3) operates over UDP port 443. Unlike TCP, UDP does not support stream segmentation.
+- Evasion is performed by injecting fake UDP payloads (using `fake` or `fakeknown` modes), padding lengths (`udplen`), or utilizing IPv6-specific options.
+- The `udplen` parameter increases or decreases the UDP payload length by a set offset, preventing length-based signature matching.
+
+### 4.7. Server-Side Response Manipulation (wssize)
+
+If the DPI blocks connections based on the server's response (e.g., reading the server's certificate in the `ServerHello`), Vane can limit the TCP Window Size (`--wssize`) advertised to the server during the handshake. This forces the server to fragment its response into small segments, preventing the DPI from reading the certificate in a single packet.
 
 ---
 
-## Yerleşik Hazır Ayarlar
+## 5. Vane System Features
 
-Vane, test edilmiş varsayılan ayarları içerir:
+In addition to wrapping the zapret core, Vane implements several integrated networking services.
 
-- **Default**: Multidisorder ve sahte paket enjeksiyonu kullanır. Birçok servis sağlayıcı için en kararlı başlangıç ayarıdır.
-- **TR 1**: Türkiye'deki internet servis sağlayıcıları için özel olarak optimize edilmiş profildir. Autottl, md5sig ve çoklu protokol desteğiyle split yöntemini kullanır.
-- **Aggressive TTL Strict**: Sıkı sınırlamalara sahip ağlar için düşük TTL kullanan agresif sahte paket stratejisidir.
-- **Standard Split**: Sahte paket kullanmadan sadece TCP paketlerini böler. Güvenlidir ve ev modemleriyle tam uyumludur.
-- **YouTube and QUIC Focus**: YouTube video akışlarını hızlandırmak için UDP port 443 trafiğini hedefler.
-- **Discord and VoIP Fix**: Sesli aramaların engellenmesini önlemek için 50000-65535 aralığındaki UDP portlarını optimize eder.
-- **Deep Fragmentation**: SNI başlıklarını gizlemek için paketleri syndata ile çok küçük parçalara böler.
-- **Heavy Censorship Evasion**: Yüksek filtrelemeye sahip ağlar için paket tekrarları kullanır.
-- **Lightweight Gaming**: Oyun gecikmesini (ping) korumak için minimum düzeyde paket bölmesi uygular.
-- **Out-of-Band (OOB)**: OOB sinyalleri ile çalışır.
-- **HTTPS SNI Ghost**: Tarayıcı performansı için fake ve syndata yöntemlerini harmanlar.
+### 5.1. DNS Guard (Local DoH/DoT/DoQ forwarder)
+DNS Guard runs a local resolver on `127.0.0.127:5353`.
+- It converts standard UDP port 53 queries into encrypted DNS-over-HTTPS, DNS-over-TLS, or DNS-over-QUIC requests.
+- It caches resolved records in memory to decrease latency.
+- It filters queries against local blocklists (StevenBlack hosts list) to block advertising, telemetry, and malware domains at the DNS level.
 
----
+### 5.2. Safety Controls (Kill Switch and Watchdog)
+- **Kill Switch**: Applies native firewall rules (using Windows Filtering Platform or iptables) to block outbound UDP/TCP port 53 traffic, preventing DNS leaks outside the secure tünel.
+- **Watchdog**: Periodically runs ICMP ping or HTTP head requests to specified domains (like `discord.com`). If access is lost, it attempts to recover the connection by restarting the engine or running an optimization scan.
 
-## Kurulum
+### 5.3. Upstream Proxy Configuration
+Allows tunneling DNS Guard's outgoing DoH queries through a SOCKS5 proxy, concealing the lookup path from the ISP.
 
-İndirilen kurulum dosyasını çalıştırın.
-
-- **Windows**: Sürücülerin yüklenebilmesi için uygulamayı Yönetici olarak çalıştırın.
-- **Linux**: `.deb` paketini kurun veya `.AppImage` dosyasını çalıştırın. `CAP_NET_ADMIN` yetkisine ihtiyaç duyar.
-
----
-
-## Sorun Giderme
-
-- **Bağlantı kurulamıyor**: GoodbyeDPI veya diğer benzer araçların kapalı olduğundan emin olun. Standard Split hazır ayarına geçmeyi deneyin.
-- **ISP bilgisi N/A**: Konum belirleme API'si zaman aşımına uğramıştır. Uygulama belirli aralıklarla sorguyu tekrarlayacaktır.
-- **WinDivert hatası**: Başka bir uygulamanın sürücüyü kilitlemediğinden emin olun ve uygulamayı yönetici olarak başlatın.
+### 5.4. Log Output Console with Categorized Badges
+The logs console parses stdout and stderr from the underlying processes and applies colored tags:
+- `[MOTOR]`: Zapret engine status and execution logs (purple).
+- `[DNS]`: DNS Guard queries, caching events, and protocol changes (green).
+- `[ADBLOCK]`: AdBlock list filtering events (red).
+- `[GÜVENLİK]`: Windows elevation state, sanitization, and driver locks (yellow).
+- `[SİSTEM]`: Autostart actions and network change detection (blue).
+- `[HATA]`: Process execution errors and critical failures (red).
+- `[UYARI]`: Non-critical warnings and recovery attempts (amber).
 
 ---
 
-## Credits
+## 6. Combining Advanced Parameters (Practical Strategies)
 
-- **zapret** by bol-van — Underlaying bypass engine
-- **Tauri** — Application framework
-- **Minisign** — Preset signature verification
+To construct an effective bypass strategy, parameters must be combined based on the inspection type.
+
+### Strategy 1: Standard Split Evasion (Safe, High Compatibility)
+Best for basic DPI setups and older home routers. It does not generate fake packets.
+```
+--wf-tcp=80,443 --dpi-desync=split --dpi-desync-split-pos=2
+```
+*Mechanism*: Splits all HTTP and TLS handshakes at byte offset 2.
+
+### Strategy 2: Autottl with Fake Packet Injection (Aggressive, ISP Evasion)
+Used when the ISP blocks SNI string matches and accepts fake packets.
+```
+--wf-tcp=80,443 --dpi-desync=fake,multidisorder --dpi-desync-autottl=-1:3-20 --dpi-desync-fooling=badseq --dpi-desync-any-protocol
+```
+*Mechanism*:
+1. Observes the server's TTL.
+2. Injects a fake packet with calculated TTL and a bad sequence number.
+3. Sends the remaining original segments in reverse order.
+
+### Strategy 3: Turkey ISP Bypass (TR 1 Default Preset)
+Specifically optimized for restrictive networks in Turkey.
+```
+--wf-tcp=80,443 --wf-udp=443 --dpi-desync=split --dpi-desync-any-protocol --dpi-desync-cutoff=d3 --dpi-desync-split-pos=4 --dpi-desync-fooling=md5sig --dpi-desync-autottl
+```
+*Mechanism*:
+- Targets both TCP (web browsing) and UDP (QUIC/HTTP3).
+- Uses split desync with absolute split position 4.
+- Adds MD5 signature option to protect against fake processing.
+- Automatically calculates TTL bounds to restrict packet propagation.
 
 ---
 
-## License
+## 7. Firewall and Linux Integration (Iptables/Nftables)
 
-MIT License
+When running on Linux, `nfqws` requires redirecting traffic to the user-space NFQUEUE target.
+
+### Iptables Setup Example
+```bash
+# Redirect outgoing HTTP and HTTPS traffic to nfqws queue 1
+iptables -A OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 1 --queue-bypass
+
+# Redirect incoming traffic (required for autottl calculations)
+iptables -A INPUT -p tcp -m multiport --sports 80,443 -j NFQUEUE --queue-num 1 --queue-bypass
+```
+
+### Nftables Setup Example
+```nftables
+table inet vane_filter {
+    chain bypass_out {
+        type filter hook output priority filter; policy accept;
+        tcp dport { 80, 443 } queue num 1 bypass
+    }
+    chain bypass_in {
+        type filter hook input priority filter; policy accept;
+        tcp sport { 80, 443 } queue num 1 bypass
+    }
+}
+```
+
+---
+
+## 8. Limitations and When Evasion Fails
+
+Packet-level manipulation is not a universal solution:
+1. **IP Blocking**: If the target server's IP address is blocked at the routing layer, modifying the payload will not help. A VPN or proxy is required.
+2. **Active TCP Reconstruction**: If the ISP routes traffic through a transparent proxy that fully terminates and rebuilds TCP connections, Vane's modified packets will be absorbed by the proxy.
+3. **Active Probing**: Some firewalls perform active probing, sending probe packets back to the client to verify if the connection is legitimate.
+
+---
+
+## 9. Codebase Architecture and Development Guide
+
+Vane's codebase is split into Rust (backend) and React/TypeScript (frontend).
+
+```
+src/                        React frontend (components, stores, styles)
+src-tauri/
+  src/
+    engine/                 Process management, logger, argument sanitizer
+    dns/                    Local forwarder, caching, AdGuard filtering
+    presets/                Sync and Minisign signature checks
+    logging.rs              Tracing subscriber with tag classification
+    commands.rs             Tauri API commands exposed to frontend
+```
+
+### Argument Sanitizer
+To prevent command injection, `src-tauri/src/engine/sanitizer.rs` validates all arguments against a strict whitelist before launching the process. Any argument or character not present in the whitelist is rejected.
+
+---
+
+## 10. Troubleshooting and Diagnostics
+
+- **WinDivert driver fail**: Ensure no other DPI bypass tools (such as GoodbyeDPI) are running.
+- **DNS Leak detected**: Ensure the Kill Switch is enabled in the Safety & Proxy tab.
+- **Log shows [HATA]**: Check if Vane is running with Administrator privileges.
+
+---
+
+## 11. Credits and License
+
+- **zapret** by bol-van: The underlying bypass engine.
+- **Tauri**: The application framework.
+- **Minisign**: Cryptographic signature verification.
+
+Licensed under the MIT License.
