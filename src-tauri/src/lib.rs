@@ -152,7 +152,10 @@ async fn autostart_engine_with_last_preset(app: AppHandle) {
 }
 
 pub fn run() {
-    logging::init_logging();
+    // NOTE: Do NOT call logging::init_logging() here.
+    // tauri_plugin_log initialises the global tracing subscriber.
+    // Calling try_init() a second time is a no-op in debug but causes a
+    // silent crash (SetLogger error) in release builds running as Administrator.
     let builder = tauri::Builder::default()
         // Multi-instance prevention MUST be the very first plugin registered
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
@@ -179,6 +182,10 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            // Init our custom tracing subscriber *once*. The OnceLock guard in
+            // logging.rs ensures this is a no-op on subsequent calls, preventing
+            // the silent crash that plagued v1.0.8+ on Administrator sessions.
+            logging::init_logging();
             logging::set_app_handle(app.handle().clone());
             // Clean up dangling processes from previous runs (Windows only)
             #[cfg(target_os = "windows")]
