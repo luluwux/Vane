@@ -284,7 +284,7 @@ export const useEngineStore = create<EngineStore>()(
           }
         } catch (err) {
           console.error("Preset silinemedi:", err);
-          get().appendLog(`Preset silinirken hata: ${err}`, 'error');
+          get().appendLog(`[HATA] Preset silinirken hata: ${err}`, 'error');
         }
       },
 
@@ -294,22 +294,22 @@ export const useEngineStore = create<EngineStore>()(
 
         // Seçilen preseti kalıcı olarak kaydet (persist aracılığıyla)
         set({ activePresetId: id, status: { variant: 'starting' } });
-        get().appendLog(`Motor başlatılıyor: ${id}`, 'info');
+        get().appendLog(`[MOTOR] Başlatılıyor: ${id}`, 'info');
 
         try {
           const result = await invoke<EngineStatus>('start_engine_with_dns_guard', { presetId: id });
           set({ status: result });
 
           if (result.variant === 'running') {
-            get().appendLog(`Bypass aktif edildi (PID: ${result.pid})`, 'info');
+            get().appendLog(`[MOTOR] Bypass aktif (PID: ${result.pid})`, 'info');
           } else if (result.variant === 'error') {
-            get().appendLog(`Motor hatası: ${result.message}`, 'error');
+            get().appendLog(`[HATA] Motor hatası: ${result.message}`, 'error');
           }
         } catch (err: any) {
           const errorCode = typeof err === 'object' && err !== null && 'code' in err ? err.code : 'UNKNOWN';
           const errorMsg = typeof err === 'object' && err !== null && 'message' in err ? err.message : String(err);
           set({ status: { variant: 'error', message: errorMsg, code: errorCode } });
-          get().appendLog(`Başlatma hatası: ${errorMsg}`, 'error');
+          get().appendLog(`[HATA] Başlatma hatası: ${errorMsg}`, 'error');
         }
       },
 
@@ -317,7 +317,7 @@ export const useEngineStore = create<EngineStore>()(
         try {
           await invoke('stop_engine');
           set({ status: { variant: 'stopped' } });
-          get().appendLog('Motor durduruldu.', 'warn');
+          get().appendLog('[MOTOR] Motor durduruldu.', 'warn');
         } catch (err) {
           console.error('Durdurma hatası:', err);
         }

@@ -38,16 +38,31 @@ where
         event.record(&mut visitor);
 
         let metadata = event.metadata();
-        let level_str = match *metadata.level() {
-            tracing::Level::ERROR => "error",
-            tracing::Level::WARN  => "warn",
-            tracing::Level::INFO  => "info",
-            tracing::Level::DEBUG => "debug",
-            tracing::Level::TRACE => "trace",
+        let target = metadata.target();
+
+        // Module path'e göre Türkçe kategori etiketi belirle
+        let tag = if target.contains("engine") || target.contains("manager") || target.contains("process") {
+            "MOTOR"
+        } else if target.contains("adblock") {
+            "ADBLOCK"
+        } else if target.contains("dns") || target.contains("forwarder") || target.contains("resolver") {
+            "DNS"
+        } else if target.contains("sanitizer") || target.contains("privilege") {
+            "GÜVENLİK"
+        } else if target.contains("updater") || target.contains("update") {
+            "GÜNCELLEME"
+        } else if target.contains("autostart") || target.contains("watcher") || target.contains("network") {
+            "SİSTEM"
+        } else {
+            match *metadata.level() {
+                tracing::Level::ERROR => "HATA",
+                tracing::Level::WARN  => "UYARI",
+                _                     => "SİSTEM",
+            }
         };
 
         if !visitor.0.is_empty() {
-            let log_line = format!("[Rust:{}] {}", level_str.to_uppercase(), visitor.0);
+            let log_line = format!("[{}] {}", tag, visitor.0);
             if let Ok(guard) = APP_HANDLE.lock() {
                 if let Some(handle) = &*guard {
                     let _ = handle.emit("log_batch", vec![log_line]);

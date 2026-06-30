@@ -49,12 +49,12 @@ export function useEventListeners(): void {
 
     // Emitted when DNS Guard auto-applies Cloudflare on engine start
     register<string>('dns_auto_applied', (message) => {
-      appendLog(`ℹ️ ${message}`, 'warn');
+      appendLog(`[DNS] ${message}`, 'warn');
     });
 
     // WM_DEVICECHANGE fired by network/watcher.rs on adapter changes
     register<void>('network_changed', () => {
-      appendLog('⚠️ Network change detected — refreshing DNS status...', 'warn');
+      appendLog('[SİSTEM] Network change detected — refreshing DNS status...', 'warn');
       refreshDnsStatus();
     });
 

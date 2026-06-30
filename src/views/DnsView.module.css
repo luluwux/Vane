@@ -53,18 +53,18 @@
 
 .card:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.02);
-  border-color: rgba(92, 124, 250, 0.3);
+  border-color: var(--color-border-accent);
 }
 
 .card.selected {
-  border-color: #5c7cfa;
+  border-color: var(--color-accent);
 }
 
 .badge {
   position: absolute;
   top: 10px;
   right: 10px;
-  background: #5c7cfa;
+  background: var(--color-accent);
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -112,7 +112,7 @@
 }
 
 .inputs input:focus {
-  border-color: #5c7cfa;
+  border-color: var(--color-accent);
 }
 
 /* ─── DoH Forwarder Banner ─── */
@@ -187,9 +187,9 @@
   gap: 16px;
   padding: 12px 16px;
   background: var(--color-bg-primary);
-  border: 1px solid rgba(92, 124, 250, 0.4);
+  border: 1px solid var(--color-border-accent);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(92,124,250,0.1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(139,92,246,0.1);
   width: 95%; /* Biraz geniş boşlukla ortaya oturacak */
 }
 
@@ -204,9 +204,9 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #5c7cfa;
+  background: var(--color-accent);
   flex-shrink: 0;
-  box-shadow: 0 0 8px #5c7cfa88;
+  box-shadow: 0 0 8px var(--color-accent-glow);
   animation: dotPulse 2s ease-in-out infinite;
 }
 
@@ -220,7 +220,7 @@
 .customTitle {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #5c7cfa;
+  color: var(--color-accent);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -245,7 +245,7 @@
 }
 
 .customInputs input:focus {
-  border-color: #5c7cfa;
+  border-color: var(--color-accent);
 }
 
 .customActions {
@@ -364,7 +364,7 @@
 }
 
 .select:focus {
-  border-color: rgba(59, 130, 246, 0.5);
+  border-color: var(--color-border-accent);
   background: rgba(15, 23, 42, 0.8);
 }
 
@@ -430,7 +430,7 @@
 }
 
 .switchInput:checked + .switchLabel {
-  background: #5c7cfa;
+  background: var(--color-accent);
 }
 
 .switchInput:checked + .switchLabel::after {

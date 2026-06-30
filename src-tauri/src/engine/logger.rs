@@ -16,10 +16,12 @@ where
             // Limit to 1024 chars to prevent memory exhaustion from infinite lines
             let line: String = line.chars().take(1024).collect();
 
-            if let Some(p) = prefix {
-                batch.push(format!("{}{}", p, line));
+            if prefix.is_some() {
+                // stderr satırı — motor hatası
+                batch.push(format!("[HATA] {}", line));
             } else {
-                batch.push(line);
+                // stdout satırı — motor çıktısı
+                batch.push(format!("[MOTOR] {}", line));
             }
 
             if last_flush.elapsed() >= flush_interval || batch.len() >= 50 {

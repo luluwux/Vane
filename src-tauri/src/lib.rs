@@ -377,6 +377,9 @@ pub fn run() {
             // Feature 9: Health Check
             commands::get_engine_health,
             commands::export_preset,
+            // Utility
+            commands::open_url,
+            commands::get_geoip_data,
         ]);
 
     let app = builder

@@ -498,3 +498,40 @@ pub async fn resolve_via_doh(
     Ok(vec![cloudflare, google])
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct IpWhoIsConnection {
+    pub isp: Option<String>,
+    pub org: Option<String>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct IpWhoIsResponse {
+    pub ip: Option<String>,
+    pub success: bool,
+    pub city: Option<String>,
+    pub country: Option<String>,
+    pub connection: Option<IpWhoIsConnection>,
+}
+
+#[tauri::command]
+pub async fn get_geoip_data(state: State<'_, AppState>) -> Result<IpWhoIsResponse, String> {
+    let client = &state.http_client;
+    let response = client.get("https://ipwho.is/")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    let data = response.json::<IpWhoIsResponse>()
+        .await
+        .map_err(|e| e.to_string())?;
+        
+    Ok(data)
+}
+
+#[tauri::command]
+pub fn open_url(app: AppHandle, url: String) -> Result<(), String> {
+    use tauri_plugin_shell::ShellExt;
+    app.shell().open(url, None).map_err(|e| e.to_string())
+}
+
+

@@ -1,7 +1,8 @@
-import { motion } from 'framer-motion';
+import { invoke } from '@tauri-apps/api/core';
 import { MessageSquare, Server, Code, ExternalLink } from 'lucide-react';
-import { open } from '@tauri-apps/plugin-shell';
 import styles from './FeedbackView.module.css';
+
+const openUrl = (url: string) => invoke('open_url', { url });
 
 export function FeedbackView() {
   return (
@@ -13,12 +14,7 @@ export function FeedbackView() {
 
       <div className={styles.grid}>
         {/* Discord Profile */}
-        <motion.div
-          className={styles.card}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
+        <div className={styles.card}>
           <div className={styles.cardHeader}>
             <div className={`${styles.iconWrapper} ${styles.discordIcon}`}>
               <MessageSquare size={20} />
@@ -30,19 +26,14 @@ export function FeedbackView() {
           </div>
           <button
             className={`${styles.actionBtn} ${styles.discordBtn}`}
-            onClick={() => open('https://discord.com/users/852103749228036136')}
+            onClick={() => openUrl('https://discord.com/users/852103749228036136')}
           >
             <ExternalLink size={14} /> Send a Message
           </button>
-        </motion.div>
+        </div>
 
         {/* Discord Server */}
-        <motion.div
-          className={styles.card}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
+        <div className={styles.card}>
           <div className={styles.cardHeader}>
             <div className={`${styles.iconWrapper} ${styles.serverIcon}`}>
               <Server size={20} />
@@ -54,19 +45,14 @@ export function FeedbackView() {
           </div>
           <button
             className={`${styles.actionBtn} ${styles.serverBtn}`}
-            onClick={() => open('https://discord.gg/luppux')}
+            onClick={() => openUrl('https://discord.gg/luppux')}
           >
             <ExternalLink size={14} /> Join Server
           </button>
-        </motion.div>
+        </div>
 
         {/* GitHub Repository */}
-        <motion.div
-          className={styles.card}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
+        <div className={styles.card}>
           <div className={styles.cardHeader}>
             <div className={`${styles.iconWrapper} ${styles.githubIcon}`}>
               <Code size={20} />
@@ -78,11 +64,11 @@ export function FeedbackView() {
           </div>
           <button
             className={styles.actionBtn}
-            onClick={() => open('https://github.com/luluwux/Vane')}
+            onClick={() => openUrl('https://github.com/luluwux/Vane')}
           >
             <ExternalLink size={14} /> View Repository
           </button>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

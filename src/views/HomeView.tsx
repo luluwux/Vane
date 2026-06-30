@@ -88,11 +88,10 @@ export function HomeView() {
     if (!geoFetched.current) {
       geoFetched.current = true;
 
-      fetch('https://ipwho.is/')
-        .then((res) => res.json())
+      // Backend üzerinden çek — CSP/sandbox sorunlarını atlar, ISP/Org alanlarını doğru döndürür
+      invoke<{ ip?: string; success: boolean; city?: string; country?: string; connection?: { isp?: string; org?: string } }>('get_geoip_data')
         .then((data) => {
-          // ipwho.is başarısız döndüğünde success: false olur
-          if (data.success === false) {
+          if (!data.success) {
             setGeoData({ query: 'Unavailable', isp: null, org: null, city: null, country: null });
           } else {
             setGeoData({

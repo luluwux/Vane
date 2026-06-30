@@ -29,7 +29,14 @@
 
 .toolbarActions {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
+}
+
+.logCount {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
 }
 
 .toolbarBtn {
@@ -54,14 +61,19 @@
   background: var(--color-bg-input);
 }
 
+.toolbarBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 /* Log output area */
 .output {
   flex: 1;
   overflow-y: auto;
   padding: var(--space-3);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
-  line-height: 1.6;
+  font-size: 0.72rem;
+  line-height: 1.65;
 }
 
 /* Boş durum */
@@ -78,16 +90,52 @@
 /* Log satırları */
 .logLine {
   display: flex;
+  align-items: baseline;
   gap: var(--space-2);
-  padding: 1px 0;
+  padding: 2px 0;
 }
 
 .timestamp {
   color: var(--color-text-muted);
   flex-shrink: 0;
-  font-size: 0.7rem;
+  font-size: 0.67rem;
+  min-width: 60px;
 }
 
+.message {
+  white-space: pre-wrap;
+  word-break: break-all;
+  flex: 1;
+}
+
+/* ─── Kategori Badge'leri ─── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0px 6px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  line-height: 18px;
+  height: 16px;
+  align-self: center;
+}
+
+.tagGeneric   { background: rgba(255, 255, 255, 0.06); color: #aaa; border: 1px solid rgba(255,255,255,0.1); }
+.tagSystem    { background: rgba(59, 130, 246, 0.12);  color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
+.tagEngine    { background: rgba(139, 92, 246, 0.15);  color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+.tagDns       { background: rgba(16, 185, 129, 0.12);  color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+.tagSecurity  { background: rgba(245, 158, 11, 0.12);  color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+.tagUpdate    { background: rgba(236, 72, 153, 0.12);  color: #f472b6; border: 1px solid rgba(236,72,153,0.3); }
+.tagAdblock   { background: rgba(239, 68, 68, 0.12);   color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+.tagError     { background: rgba(220, 38, 38, 0.2);    color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
+.tagWarn      { background: rgba(217, 119, 6, 0.15);   color: #fcd34d; border: 1px solid rgba(217,119,6,0.35); }
+
+/* Level renkleri */
 .content--info  { color: var(--color-text-secondary); }
 .content--warn  { color: var(--color-warning); }
 .content--error { color: var(--color-error); }

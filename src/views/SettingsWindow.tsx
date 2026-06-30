@@ -1,18 +1,17 @@
 import { useState } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { LayoutDashboard, Scroll, DatabaseZap, FlaskConical, LifeBuoy, Layers, Network, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Scroll, DatabaseZap, FlaskConical, LifeBuoy, Layers, ShieldAlert } from 'lucide-react';
 import { HomeView } from './HomeView';
 import { LogView } from './LogView';
 import { AdvancedView } from './AdvancedView';
 import { DnsView } from './DnsView';
 import { FeedbackView } from './FeedbackView';
 import { PatternView } from './PatternView';
-import { ProxyView } from './ProxyView';
-import { SafetyView } from './SafetyView';
+import { SafetyProxyView } from './SafetyProxyView';
 import { useEngineStore } from '../store/engineStore';
 import styles from './SettingsWindow.module.css';
 
-type SettingsTab = 'general' | 'connection' | 'dns' | 'advanced' | 'pattern' | 'proxy' | 'safety' | 'feedback';
+type SettingsTab = 'general' | 'connection' | 'dns' | 'advanced' | 'pattern' | 'safety_proxy' | 'feedback';
 
 export function SettingsWindow() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
@@ -28,8 +27,7 @@ export function SettingsWindow() {
     { id: 'dns', label: 'DNS', icon: DatabaseZap },
     { id: 'advanced', label: 'Advanced', icon: FlaskConical },
     { id: 'pattern', label: 'Pattern', icon: Layers },
-    { id: 'proxy', label: 'Proxy', icon: Network },
-    { id: 'safety', label: 'Safety', icon: ShieldAlert },
+    { id: 'safety_proxy', label: 'Safety & Proxy', icon: ShieldAlert },
   ];
 
   const bottomTabs = [
@@ -128,8 +126,7 @@ export function SettingsWindow() {
             {activeTab === 'dns' && <DnsView />}
             {activeTab === 'advanced' && <AdvancedView />}
             {activeTab === 'pattern' && <PatternView />}
-            {activeTab === 'proxy' && <ProxyView />}
-            {activeTab === 'safety' && <SafetyView />}
+            {activeTab === 'safety_proxy' && <SafetyProxyView />}
             {activeTab === 'feedback' && <FeedbackView />}
           </div>
         </main>
