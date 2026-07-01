@@ -33,19 +33,23 @@
   - [4.2. NFQUEUE (Linux)](#42-nfqueue-linux)
   - [4.3. Paket İşleme Hattı](#43-paket-i̇şleme-hattı)
 - [5. DPI Desync Stratejileri](#5-dpi-desync-stratejileri)
-  - [5.1. TCP Segmentasyon Yöntemleri](#51-tcp-segmentasyon-yöntemleri)
-  - [5.2. Bölme Konum İşaretçileri](#52-bölme-konum-i̇şaretçileri)
-  - [5.3. Sahte Paket Enjeksiyonu](#53-sahte-paket-enjeksiyonu)
-  - [5.4. Fooling (Yanıltma) Modları](#54-fooling-yanıltma-modları)
-  - [5.5. Sahte Paket İçeriği Özelleştirme](#55-sahte-paket-i̇çeriği-özelleştirme)
-  - [5.6. Sıra Numarası Çakıştırma (seqovl)](#56-sıra-numarası-çakıştırma-seqovl)
-  - [5.7. IP ID Atama Şemaları](#57-ip-id-atama-şemaları)
-  - [5.8. SYNDATA Modu](#58-syndata-modu)
-  - [5.9. Orijinal Paket Değişikliği](#59-orijinal-paket-değişikliği)
-  - [5.10. Yinelenen Paket Enjeksiyonu](#510-yinelenen-paket-enjeksiyonu)
-  - [5.11. Sunucu Tarafı Pencere Manipülasyonu (wssize)](#511-sunucu-tarafı-pencere-manipülasyonu-wssize)
-  - [5.12. UDP / QUIC Desync](#512-udp--quic-desync)
-- [6. Desync Parametre Referans Tablosu](#6-desync-parametre-referans-tablosu)
+  - [5.1. Desync Faz Sistemi — Kombo Sıralaması](#51-desync-faz-sistemi--kombo-sıralaması)
+  - [5.2. TCP Segmentasyon Yöntemleri](#52-tcp-segmentasyon-yöntemleri)
+  - [5.3. fakedsplit ve fakeddisorder — altorder Tablosu](#53-fakedsplit-ve-fakeddisorder--altorder-tablosu)
+  - [5.4. Bölme Konum İşaretçileri](#54-bölme-konum-i̇şaretçileri)
+  - [5.5. Sahte Paket Enjeksiyonu](#55-sahte-paket-enjeksiyonu)
+  - [5.6. Fooling (Yanıltma) Modları](#56-fooling-yanıltma-modları)
+  - [5.7. Sahte Paket İçeriği Özelleştirme](#57-sahte-paket-i̇çeriği-özelleştirme)
+  - [5.8. Sıra Numarası Çakıştırma (seqovl)](#58-sıra-numarası-çakıştırma-seqovl)
+  - [5.9. IP ID Atama Şemaları](#59-ip-id-atama-şemaları)
+  - [5.10. SYNDATA Modu](#510-syndata-modu)
+  - [5.11. Orijinal Paket Değişikliği](#511-orijinal-paket-değişikliği)
+  - [5.12. Yinelenen Paket Enjeksiyonu](#512-yinelenen-paket-enjeksiyonu)
+  - [5.13. Sunucu Tarafı Pencere Manipülasyonu (wssize)](#513-sunucu-tarafı-pencere-manipülasyonu-wssize)
+  - [5.14. UDP / QUIC Desync](#514-udp--quic-desync)
+  - [5.15. IP Parçalama (Fragmentation)](#515-ip-parçalama-fragmentation)
+- [6. tpws — Şeffaf TCP Proxy Modu](#6-tpws--şeffaf-tcp-proxy-modu)
+- [7. Desync Parametre Referans Tablosu](#7-desync-parametre-referans-tablosu)
 - [7. Parçalanmış El Sıkışma ve Kyber Desteği](#7-parçalanmış-el-sıkışma-ve-kyber-desteği)
 - [8. Bağlantı Takibi (Conntrack)](#8-bağlantı-takibi-conntrack)
 - [9. IP Önbelleği Yönetimi](#9-ip-önbelleği-yönetimi)
@@ -239,21 +243,55 @@ Gelen Paket
 
 ## 5. DPI Desync Stratejileri
 
-### 5.1. TCP Segmentasyon Yöntemleri
+### 5.1. Desync Faz Sistemi — Kombo Sıralaması
+
+`--dpi-desync` parametresi **virgülle ayrılmış en fazla 3 mod** alır. Her mod belirli bir faza aittir ve **artan faz sırasında** yazılmalıdır.
+
+| Faz | Ne Zaman Çalışır | Kullanılabilir Modlar |
+|-----|------------------|-----------------------|
+| **Faz 0** | TCP bağlantısı kurulurken (SYN/SYN-ACK) | `synack`, `syndata`, `--wssize` |
+| **Faz 1** | Orijinal veriden önce — önce sahteler gönderilir | `fake`, `fakeknown`, `rst`, `rstack`, `hopbyhop`, `destopt`, `ipfrag1` |
+| **Faz 2** | Orijinal veri değiştirilmiş biçimde gönderilir | `multisplit`, `multidisorder`, `fakedsplit`, `fakeddisorder`, `hostfakesplit`, `ipfrag2`, `udplen`, `tamper` |
+
+**Kurallar:**
+- **Faz 1 + Faz 2** kombinasyonu yapılabilir: `fake,multidisorder`
+- Aynı fazdaki iki mod birleştirilemez: ❌ `fake,fakeknown`
+- Faz 0 modları (`synack`, `syndata`) Faz 1 + Faz 2 öncesine eklenebilir: `syndata,fake,multisplit`
+
+**Örnek kombolar:**
+```
+fake,multidisorder          → Faz 1 + Faz 2 (en yaygın)
+fake,multisplit             → Faz 1 + Faz 2
+syndata,fake,fakedsplit     → Faz 0 + Faz 1 + Faz 2
+```
+
+> ⚠️ Modları yanlış sırayla yazarsanız (örn. `multidisorder,fake`) zapret yapılandırmayı reddeder.
+
+---
+
+### 5.2. TCP Segmentasyon Yöntemleri
 
 TCP desync, DPI donanımının kaynak kısıtlamalarını kullanır. Bir TCP akışı olağandışı parçalara bölündüğünde veya yeniden sıralandığında, DPI'nın yeniden birleştirme arabelleği bağlantı kurulmadan önce SNI'yi işleyemeyebilir.
 
-| Yöntem | Açıklama | Karmaşıklık | Uyumluluk |
-|--------|----------|-------------|-----------|
-| `split` | TCP yükünü tek konumda böler | Düşük | Çok Yüksek |
-| `split2` | İki konumda böler | Düşük | Yüksek |
-| `disorder` | Böler ve segmentleri ters sırayla gönderir | Orta | Yüksek |
-| `disorder2` | İki konumda bozuk düzen | Orta | Orta-Yüksek |
-| `fakedsplit` | Bölme + etrafında sahte paketler | Yüksek | Yüksek |
-| `fakeddisorder` | Bozuk düzen + sahte paketler | Yüksek | Orta-Yüksek |
-| `multisplit` | Listede belirtilen N konumda bölme | Orta | Yüksek |
-| `multidisorder` | Çok konumlu bozuk düzen | Yüksek | Yüksek |
-| `hostfakesplit` | Özellikle hostname alanı etrafında bölme | Yüksek | Orta |
+| Yöntem | Faz | Açıklama | Uyumluluk |
+|--------|-----|----------|-----------|
+| `split` | 2 | TCP yükünü tek konumda böler | Çok Yüksek |
+| `split2` | 2 | İki konumda böler | Yüksek |
+| `disorder` | 2 | Böler ve segmentleri ters sırayla gönderir | Yüksek |
+| `disorder2` | 2 | İki konumda bozuk düzen | Orta-Yüksek |
+| `fakedsplit` | 2 | Bölme + etrafında sahte paketler | Yüksek |
+| `fakeddisorder` | 2 | Ters sıra bölme + sahte paketler | Orta-Yüksek |
+| `multisplit` | 2 | Listede belirtilen N konumda bölme | Yüksek |
+| `multidisorder` | 2 | Çok konumlu bozuk düzen | Yüksek |
+| `hostfakesplit` | 2 | Hostname alanı etrafında sahte hostlu bölme | Orta |
+| `fake` | 1 | Gerçekten önce sahte TLS/HTTP/QUIC paketi gönder | Yüksek |
+| `fakeknown` | 1 | Protokol-bilinçli sahte paket (QUIC Initial, WireGuard…) | Yüksek |
+| `rst` | 1 | Gerçekten önce sahte RST paketi gönder | Orta |
+| `rstack` | 1 | Gerçekten önce sahte RST+ACK paketi gönder | Orta |
+| `syndata` | 0 | SYN paketinin içine veri yükü ekle | Orta |
+| `synack` | 0 | TCP split handshake manipülasyonu | Düşük |
+| `ipfrag1` | 1 | Sahte paketlere IPv6 Fragment başlığı ekle (yalnızca IPv6) | Orta |
+| `ipfrag2` | 2 | Orijinal paketleri IP katmanında parçala | Orta |
 
 **Bozuk düzen (disorder) nasıl çalışır:**
 
@@ -266,7 +304,49 @@ Sunucu:      Seg2, Seg3'ü arabellekte tutar, Seg1'i alınca doğru sırayla bir
 DPI:         Yeniden birleştiremez → SNI'yi göz ardı eder
 ```
 
-### 5.2. Bölme Konum İşaretçileri
+---
+
+### 5.3. fakedsplit ve fakeddisorder — altorder Tablosu
+
+`fakedsplit` ve `fakeddisorder`, gerçek TCP segmentlerinin etrafına sahte yem paketleri yerleştirir. Sahtelerin ve gerçek segmentlerin **tam gönderim sırası**, `altorder=N` değiştiriciyle kontrol edilir:
+
+```
+--dpi-desync-fakedsplit-mod=altorder=N
+```
+
+#### fakedsplit — Çok paketli mod (bölme konumu tanımlıyken)
+
+| altorder | Gönderilen paket sırası |
+|----------|--------------------------|
+| `0` (varsayılan) | `sahte[1.]` → `gerçek[1.]` → `sahte[1.]` → `sahte[2.]` → `gerçek[2.]` → `sahte[2.]` |
+| `1` | `gerçek[1.]` → `sahte[1.]` → `sahte[2.]` → `gerçek[2.]` → `sahte[2.]` |
+| `2` | `gerçek[1.]` → `sahte[2.]` → `gerçek[2.]` → `sahte[2.]` |
+| `3` | `gerçek[1.]` → `sahte[2.]` → `gerçek[2.]` |
+
+#### fakeddisorder — Çok paketli mod (ters sıra + sahteler)
+
+| altorder | Gönderilen paket sırası |
+|----------|--------------------------|
+| `0` (varsayılan) | `sahte[2.]` → `gerçek[2.]` → `sahte[2.]` → `sahte[1.]` → `gerçek[1.]` → `sahte[1.]` |
+| `1` | `gerçek[2.]` → `sahte[2.]` → `sahte[1.]` → `gerçek[1.]` → `sahte[1.]` |
+| `2` | `gerçek[2.]` → `sahte[1.]` → `gerçek[1.]` → `sahte[1.]` |
+| `3` | `gerçek[2.]` → `sahte[1.]` → `gerçek[1.]` |
+
+#### Tek paketli mod (bölme konumu tanımsız)
+
+| altorder | Sıra |
+|----------|------|
+| `0` | `sahte` → `gerçek` → `sahte` |
+| `8` | `gerçek` → `sahte` |
+| `16` | Yalnızca `gerçek` (sahteler devre dışı) |
+
+Değerler toplanabilir — çok paketli `altorder=N` + tek paketli `0`, `8` veya `16`. Çoğu ISP için `altorder=0` (varsayılan) veya `altorder=1` yeterlidir.
+
+> 💡 **Örnek özel preset:** `--dpi-desync=fake,fakedsplit --dpi-desync-fakedsplit-mod=altorder=1 --dpi-desync-fooling=badseq`
+
+---
+
+### 5.4. Bölme Konum İşaretçileri
 
 | İşaretçi | Çözümlediği Konum | Geçerli Protokol |
 |----------|-------------------|------------------|
@@ -302,17 +382,12 @@ Zaman çizelgesi:
 
 **Kritik gereksinim**: Sahte paketin gerçek sunucuya ulaşmaması gerekir (aksi halde sunucu bağlantıyı keser). Bu **fooling modları** ile sağlanır.
 
-### 5.4. Fooling (Yanıltma) Modları
+### 5.6. Fooling (Yanıltma) Modları
 
 | Mod | Mekanizma | Güvenilirlik | Notlar |
 |-----|-----------|--------------|--------|
-| `ttl` | TTL'yi hedefe ulaşmadan dolacak kadar düşük ayarla | Yüksek | Atlatma sayısı gerektirir; TTL yeniden yazan routerlarla çalışmaz |
+| `ttl` | TTL'yi hedefe ulaşmadan dolacak kadar düşük ayarla | Yüksek | Atlama sayısı gerektirir; TTL yeniden yazan routerlarla çalışmaz |
 | `autottl` | Sunucunun gelen TTL'ini ölçer, atlama mesafesini otomatik hesaplar | Çok Yüksek | En iyi varsayılan seçim |
-| `badsum` | Yanlış TCP sağlama toplamıyla sahte paket | Yüksek | Bazı NAT routerları da düşürebilir; Linux NAT'ta `nf_conntrack_checksum=0` gerekebilir |
-| `badseq` | Sunucunun penceresinin dışında sıra numarası | Yüksek | Varsayılan ofset: -10000; maksimum etkililik için 0x80000000 kullanın |
-| `md5sig` | TCP başlığına RFC 2385 MD5 seçeneği ekle | Yüksek | Linux dışı sunucular MD5'i reddeder; MTU sorunlarına yol açabilir |
-| `datanoack` | ACK bayrağı olmadan sahte paket gönder | Orta | NAT ile çakışabilir |
-| `ts` | PAWS reddini tetikleyen sahte TCP zaman damgası | Orta | İstemcide `net.ipv4.tcp_timestamps=1` gerektirir |
 
 ### 5.5. Sahte Paket İçeriği Özelleştirme
 
@@ -348,7 +423,7 @@ Sunucu:    OS uygulamasına bağlı olarak ikinci alınan veya sonraki verilere 
 | `rnd` | Her pakete rastgele IP ID | Parmak izi önleme |
 | `zero` | IP ID'yi 0'a zorla | Yalnızca Linux/BSD sunucular |
 
-### 5.8. SYNDATA Modu
+### 5.10. SYNDATA Modu
 
 Normalde TCP SYN paketleri yük taşımaz. SYNDATA, SYN paketinin içine veri yükü ekler.
 
@@ -360,7 +435,7 @@ SYNDATA SYN:   [SYN bayrağı][16 null bayt veya özel yük]
 - Hedef OS, SYN yükünü **TCP Fast Open (TFO)** etkin olmadıkça yoksayar.
 - DPI ise SYN yükünü ayrıştırmaya çalışarak oturum durum makinesi gerçek el sıkışmayla senkronunu kaybeder.
 
-### 5.9. Orijinal Paket Değişikliği
+### 5.11. Orijinal Paket Değişikliği
 
 **Gerçek** veri paketlerinin TTL ve IP ID alanlarını değiştirebilirsiniz (yalnızca sahteler için değil):
 
@@ -371,11 +446,11 @@ SYNDATA SYN:   [SYN bayrağı][16 null bayt veya özel yük]
 
 Bu, DPI'ı gerçek ve sahte akışları karşılaştırırken hatalı atlama mesafeleri hesaplamaya zorlar.
 
-### 5.10. Yinelenen Paket Enjeksiyonu
+### 5.12. Yinelenen Paket Enjeksiyonu
 
 `--dup=N`, gerçek paketten önce N adet yinelenen kopya gönderir.
 
-| Parametre | Etkisi |
+| Parametre | İşlevi |
 |-----------|--------|
 | `--dup=1` | Gerçek paketten önce 1 yinelenen gönder |
 | `--dup-ttl=N` | Yinelemelere N TTL uygula |

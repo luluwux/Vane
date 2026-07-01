@@ -33,19 +33,23 @@
   - [4.2. NFQUEUE (Linux)](#42-nfqueue-linux)
   - [4.3. Packet Processing Pipeline](#43-packet-processing-pipeline)
 - [5. DPI Desync Strategies](#5-dpi-desync-strategies)
-  - [5.1. TCP Segmentation Methods](#51-tcp-segmentation-methods)
-  - [5.2. Split Position Markers](#52-split-position-markers)
-  - [5.3. Fake Packet Injection](#53-fake-packet-injection)
-  - [5.4. Fooling Modes](#54-fooling-modes)
-  - [5.5. Fake Payload Customization](#55-fake-payload-customization)
-  - [5.6. Sequence Number Overlap (seqovl)](#56-sequence-number-overlap-seqovl)
-  - [5.7. IP ID Assignment Schemes](#57-ip-id-assignment-schemes)
-  - [5.8. SYNDATA Mode](#58-syndata-mode)
-  - [5.9. Original Packet Modding](#59-original-packet-modding)
-  - [5.10. Duplicate Packet Injection](#510-duplicate-packet-injection)
-  - [5.11. Server-Side Window Manipulation (wssize)](#511-server-side-window-manipulation-wssize)
-  - [5.12. UDP / QUIC Desync](#512-udp--quic-desync)
-- [6. Desync Parameter Reference Table](#6-desync-parameter-reference-table)
+  - [5.1. Desync Phase System — Combo Order](#51-desync-phase-system--combo-order)
+  - [5.2. TCP Segmentation Methods](#52-tcp-segmentation-methods)
+  - [5.3. fakedsplit and fakeddisorder — altorder Table](#53-fakedsplit-and-fakeddisorder--altorder-table)
+  - [5.4. Split Position Markers](#54-split-position-markers)
+  - [5.5. Fake Packet Injection](#55-fake-packet-injection)
+  - [5.6. Fooling Modes](#56-fooling-modes)
+  - [5.7. Fake Payload Customization](#57-fake-payload-customization)
+  - [5.8. Sequence Number Overlap (seqovl)](#58-sequence-number-overlap-seqovl)
+  - [5.9. IP ID Assignment Schemes](#59-ip-id-assignment-schemes)
+  - [5.10. SYNDATA Mode](#510-syndata-mode)
+  - [5.11. Original Packet Modding](#511-original-packet-modding)
+  - [5.12. Duplicate Packet Injection](#512-duplicate-packet-injection)
+  - [5.13. Server-Side Window Manipulation (wssize)](#513-server-side-window-manipulation-wssize)
+  - [5.14. UDP / QUIC Desync](#514-udp--quic-desync)
+  - [5.15. IP Fragmentation](#515-ip-fragmentation)
+- [6. tpws — Transparent TCP Proxy Mode](#6-tpws--transparent-tcp-proxy-mode)
+- [7. Desync Parameter Reference Table](#7-desync-parameter-reference-table)
 - [7. Fragmented Handshake and Kyber Support](#7-fragmented-handshake-and-kyber-support)
 - [8. Connection Tracking (Conntrack)](#8-connection-tracking-conntrack)
 - [9. IP Cache Management](#9-ip-cache-management)
@@ -241,21 +245,55 @@ Incoming Packet
 
 ## 5. DPI Desync Strategies
 
-### 5.1. TCP Segmentation Methods
+### 5.1. Desync Phase System — Combo Order
+
+`--dpi-desync` accepts **up to 3 comma-separated modes**. Each mode belongs to a specific phase and must be written in **ascending phase order**.
+
+| Phase | When It Runs | Available Modes |
+|-------|--------------|-----------------|
+| **Phase 0** | During TCP connection establishment (SYN/SYN-ACK) | `synack`, `syndata`, `--wssize` |
+| **Phase 1** | Before original data — fakes sent first | `fake`, `fakeknown`, `rst`, `rstack`, `hopbyhop`, `destopt`, `ipfrag1` |
+| **Phase 2** | Original data sent in a modified way | `multisplit`, `multidisorder`, `fakedsplit`, `fakeddisorder`, `hostfakesplit`, `ipfrag2`, `udplen`, `tamper` |
+
+**Rules:**
+- You can combine **one Phase 1 mode + one Phase 2 mode**: `fake,multidisorder`
+- You cannot mix two modes from the same phase: ❌ `fake,fakeknown`
+- Phase 0 modes (`synack`, `syndata`) can precede Phase 1 + Phase 2 combos: `syndata,fake,multisplit`
+
+**Example combos:**
+```
+fake,multidisorder          → Phase 1 + Phase 2 (most common)
+fake,multisplit             → Phase 1 + Phase 2
+syndata,fake,fakedsplit     → Phase 0 + Phase 1 + Phase 2
+```
+
+> ⚠️ If you write modes in the wrong order (e.g., `multidisorder,fake`), zapret will reject the configuration.
+
+---
+
+### 5.2. TCP Segmentation Methods
 
 TCP desync works by exploiting the resource constraints of DPI hardware. When a TCP stream is split into unusual fragments or reordered, the DPI's reassembly buffer may fail to process the SNI before the connection is established.
 
-| Method | Description | Complexity | Compatibility |
-|--------|-------------|------------|---------------|
-| `split` | Split TCP payload at one position | Low | Very High |
-| `split2` | Split at two positions | Low | High |
-| `disorder` | Split and send segments in reverse order | Medium | High |
-| `disorder2` | Disorder at two positions | Medium | Medium-High |
-| `fakedsplit` | Split + fake decoy packets around segments | High | High |
-| `fakeddisorder` | Disorder + fake decoy packets | High | Medium-High |
-| `multisplit` | Split at N positions specified in the list | Medium | High |
-| `multidisorder` | Multi-position disorder | High | High |
-| `hostfakesplit` | Split around the hostname field specifically | High | Medium |
+| Method | Phase | Description | Compatibility |
+|--------|-------|-------------|---------------|
+| `split` | 2 | Split TCP payload at one position | Very High |
+| `split2` | 2 | Split at two positions | High |
+| `disorder` | 2 | Split and send segments in reverse order | High |
+| `disorder2` | 2 | Disorder at two positions | Medium-High |
+| `fakedsplit` | 2 | Sequential one-position split with fake mix | High |
+| `fakeddisorder` | 2 | Reverse one-position split with fake mix | Medium-High |
+| `multisplit` | 2 | Split at N positions (list) | High |
+| `multidisorder` | 2 | Multi-position disorder | High |
+| `hostfakesplit` | 2 | Split around hostname field with fake host | Medium |
+| `fake` | 1 | Inject fake TLS/HTTP/QUIC packet before real | High |
+| `fakeknown` | 1 | Inject known-protocol fake (QUIC Initial, WireGuard…) | High |
+| `rst` | 1 | Inject fake RST before real packet | Medium |
+| `rstack` | 1 | Inject fake RST+ACK before real packet | Medium |
+| `syndata` | 0 | Insert data payload inside SYN packet | Medium |
+| `synack` | 0 | Perform TCP split handshake manipulation | Low |
+| `ipfrag1` | 1 | Add IPv6 fragment header to fakes (IPv6 only) | Medium |
+| `ipfrag2` | 2 | IP-level fragmentation of original packets | Medium |
 
 **How disorder works:**
 
@@ -268,7 +306,49 @@ Server:      Buffers Seg2, Seg3, then receives Seg1 → reassembles correctly
 DPI:         Cannot reassemble → ignores SNI
 ```
 
-### 5.2. Split Position Markers
+---
+
+### 5.3. fakedsplit and fakeddisorder — altorder Table
+
+`fakedsplit` and `fakeddisorder` surround real TCP segments with fake decoy packets. The **exact sequence** in which fakes and real segments are sent is controlled by the `altorder=N` modifier:
+
+```
+--dpi-desync-fakedsplit-mod=altorder=N
+```
+
+#### fakedsplit — Multi-packet (with defined split position)
+
+| altorder | Packet sequence sent |
+|----------|----------------------|
+| `0` (default) | `fake[1st]` → `real[1st]` → `fake[1st]` → `fake[2nd]` → `real[2nd]` → `fake[2nd]` |
+| `1` | `real[1st]` → `fake[1st]` → `fake[2nd]` → `real[2nd]` → `fake[2nd]` |
+| `2` | `real[1st]` → `fake[2nd]` → `real[2nd]` → `fake[2nd]` |
+| `3` | `real[1st]` → `fake[2nd]` → `real[2nd]` |
+
+#### fakeddisorder — Multi-packet (reverse order + fakes)
+
+| altorder | Packet sequence sent |
+|----------|----------------------|
+| `0` (default) | `fake[2nd]` → `real[2nd]` → `fake[2nd]` → `fake[1st]` → `real[1st]` → `fake[1st]` |
+| `1` | `real[2nd]` → `fake[2nd]` → `fake[1st]` → `real[1st]` → `fake[1st]` |
+| `2` | `real[2nd]` → `fake[1st]` → `real[1st]` → `fake[1st]` |
+| `3` | `real[2nd]` → `fake[1st]` → `real[1st]` |
+
+#### Single-packet mode (no split pos defined)
+
+| altorder | Sequence |
+|----------|----------|
+| `0` | `fake` → `real` → `fake` |
+| `8` | `real` → `fake` |
+| `16` | `real` only (fakes disabled) |
+
+Combined values are additive — `altorder=N` for multi-packet + `0`, `8`, or `16` for single-packet part. Most ISPs are defeated by `altorder=0` (default) or `altorder=1`.
+
+> 💡 **Custom preset example:** `--dpi-desync=fake,fakedsplit --dpi-desync-fakedsplit-mod=altorder=1 --dpi-desync-fooling=badseq`
+
+---
+
+### 5.4. Split Position Markers
 
 Split positions define where in the packet the TCP payload is divided.
 
@@ -306,7 +386,7 @@ Timeline:
 
 **Critical requirement**: The fake packet must not reach the real server (otherwise the server terminates the connection). This is handled by **fooling modes**.
 
-### 5.4. Fooling Modes
+### 5.6. Fooling Modes
 
 Fooling modes are applied to fake packets to prevent them from being accepted by the destination server.
 
@@ -314,11 +394,18 @@ Fooling modes are applied to fake packets to prevent them from being accepted by
 |------|-----------|-------------|-------|
 | `ttl` | Set TTL low enough to expire before destination | High | Requires hop counting; doesn't work through TTL-rewriting routers |
 | `autottl` | Measure server's incoming TTL, auto-calculate hop distance | Very High | Best default choice; requires server TTL observation |
-| `badsum` | Inject incorrect TCP checksum | High | Some NAT routers may also drop it; requires `nf_conntrack_checksum=0` on Linux NAT |
-| `badseq` | Use sequence number outside server's window | High | Default offset: -10000; use 0x80000000 for max effectiveness |
-| `md5sig` | Add RFC 2385 MD5 option to TCP header | High | Most non-Linux servers reject MD5; may cause MTU issues |
-| `datanoack` | Send fake packet without ACK flag | Medium | May conflict with NAT; servers usually ignore non-ACK packets |
-| `ts` | Spoofed TCP timestamp causing PAWS rejection | Medium | Requires `net.ipv4.tcp_timestamps=1` on client |
+| `badsum` | Inject incorrect TCP checksum | High | **Fails through most home routers** — see note below |
+| `badseq` | Use sequence number outside server's window | High | Default offset: -10000; use `0x80000000` for 100% outside window |
+| `md5sig` | Add RFC 2385 MD5 option to TCP header | High | Most non-Linux servers reject MD5; may cause MTU overflow on low split positions |
+| `datanoack` | Send fake packet without ACK flag | Medium | May conflict with NAT/masquerade; works correctly with nftables |
+| `ts` | Spoofed TCP timestamp causing PAWS rejection | Medium | Requires `net.ipv4.tcp_timestamps=1` on client; enable on Windows with `netsh interface tcp set global timestamps=enabled` |
+| `hopbyhop` | Add empty IPv6 Hop-by-Hop extension header | Medium | **IPv6 only fooling** — some ISPs drop these packets |
+| `hopbyhop2` | Add two Hop-by-Hop headers (RFC violation) | Medium | All OS discard RFC-violating double hop-by-hop |
+| `destopt` | Add IPv6 Destination Options extension header | Medium | **IPv6 only** |
+
+> ⚠️ **`badsum` and home routers**: Most Linux-based home routers (default `sysctl net.netfilter.nf_conntrack_checksum=1`) verify TCP/UDP checksums via conntrack and mark packets with wrong checksum as `INVALID`. iptables FORWARD chain rules that drop `INVALID` packets will silently discard your `badsum` fakes before they even reach the WAN interface. To fix this on your router: `sysctl -w net.netfilter.nf_conntrack_checksum=0`. Note: OpenWRT sets this to `0` by default, so it works there. On hardware-level adapters (e.g., Mediatek MT7621), `badsum` may be enforced at the NIC level and cannot be bypassed in software.
+
+> ⚠️ **`hopbyhop`/`destopt` as fooling vs as desync modes**: These exist in **two different contexts**. As a **fooling mode** (`--dpi-desync-fooling=hopbyhop`), they add an extension header to fake packets only. As a **desync mode** (`--dpi-desync=hopbyhop`), they add the extension header to **all** desynced original packets. These are different use cases.
 
 **AutoTTL Explained:**
 
@@ -398,41 +485,141 @@ This forces the DPI to compute incorrect hop distances when comparing the real a
 
 **Purpose**: Force the DPI to process contradictory copies of the same packet, causing it to drop session tracking.
 
-### 5.11. Server-Side Window Manipulation (wssize)
+### 5.13. Server-Side Window Manipulation (wssize)
 
-Normally, the server sends a large TCP response (e.g., a full TLS ServerHello + Certificate chain in a single packet). A DPI can read the certificate to verify the connection.
-
-`wssize` artificially restricts the TCP window advertised to the server during the handshake:
+Some DPIs inspect not only the ClientHello but also the **server's TLS ServerHello and Certificate** to identify forbidden domains. `wssize` defeats this by advertising a tiny TCP receive window to the server, forcing it to fragment its response into small pieces the DPI cannot reassemble.
 
 ```
 Client → [SYN, Window=65535] → Server
 Client ← [SYN-ACK] ← Server
-Client → [ACK, Window=1] → Server (wssize active)
-Server: "Window is tiny, I'll send only 1 byte at a time"
-DPI: "Cannot read complete ServerHello — giving up inspection"
+Client → [ACK, Window=1] → Server  (wssize active: advertise window=1)
+Server: "Receive window is 1 byte, I must fragment my response"
+DPI:    "Cannot read complete ServerHello Certificate — abandoning inspection"
 ```
 
 | Parameter | Description |
 |-----------|-------------|
-| `--wssize=1:6` | Scale factor: restrict window to 1/64 during handshake |
-| `--wssize=0:0` | Maximum restriction |
+| `--wssize=1:6` | Recommend: window=1, scale=6 (effective window = 1×2⁶ = 64 bytes) |
+| `--wssize=0:0` | Maximum restriction (1 byte, no scaling) |
 
-> Note: Once the initial handshake completes, Vane's conntrack module lifts the window restriction to restore full download speed.
+**wssize-cutoff — when does wssize stop?**
 
-### 5.12. UDP / QUIC Desync
+`wssize` must stop after the TLS ClientHello is sent, otherwise it cripples the entire download speed. Conntrack handles this automatically:
 
-QUIC (HTTP/3) uses UDP and carries the connection's SNI in the first QUIC CRYPTO frame.
+| Trigger | Behavior |
+|---------|----------|
+| HTTP request detected | wssize stops immediately (auto forced cutoff) |
+| TLS ClientHello detected | wssize stops immediately (auto forced cutoff) |
+| `--wssize-cutoff=d3` | Stop after 3rd data packet (manual for non-HTTP/TLS protocols) |
+| `--wssize-forced-cutoff=0` | Disable auto stop — wssize runs indefinitely (use with care) |
 
-| Method | Description |
-|--------|-------------|
-| `fake` | Inject fake QUIC packet with bogus payload before real packet |
-| `fakeknown` | Inject a fake QUIC Initial packet with crafted CRYPTO frame |
-| `udplen=N` | Increase UDP payload length by N bytes (length-signature bypass) |
-| IPv6 extensions | Add IPv6 Hop-by-Hop or Destination extension headers to QUIC packets |
+> ⚠️ `wssize` is **not applied in desync profiles that use a hostlist filter**, because it must activate at connection initiation before the hostname is known. It works correctly with auto-hostlist profiles since those use the IP cache.
+
+### 5.14. UDP / QUIC Desync
+
+QUIC (HTTP/3) uses UDP and carries the connection's SNI in the first QUIC CRYPTO frame. UDP cannot be fragmented at the transport layer — only at the IP layer.
+
+| Method | Description | Protocol |
+|--------|-------------|----------|
+| `fake` | Inject fake UDP packet with arbitrary payload before real | Any UDP |
+| `fakeknown` | Inject protocol-aware fake (QUIC Initial, WireGuard handshake, Discord IP Discovery, STUN…) | Protocol-specific |
+| `udplen` | Increase UDP payload length by N bytes (`--dpi-desync-udplen-increment=N`) | Any UDP |
+| `ipfrag2` | IP-level fragmentation of original UDP packets | Any UDP |
+| `hopbyhop` | Add IPv6 Hop-by-Hop extension to UDP packets | IPv6 UDP only |
+| `destopt` | Add IPv6 Destination Options to UDP packets | IPv6 UDP only |
+
+`udplen` fills the extra bytes with zeroes by default. A custom fill pattern can be set with `--dpi-desync-udplen-pattern`. This bypasses DPIs that track outgoing UDP payload sizes.
 
 ---
 
-## 6. Desync Parameter Reference Table
+### 5.15. IP Fragmentation
+
+IP fragmentation splits packets at the **network (IP) layer** rather than the TCP layer. This is a lower-level form of evasion that some DPIs cannot handle.
+
+| Mode | Description | Phase |
+|------|-------------|-------|
+| `ipfrag1` | Add IPv6 Fragment extension header to **fake** packets | 1 (with Phase 2) |
+| `ipfrag2` | Fragment **original** packets at the IP level | 2 |
+
+**TCP:** `--dpi-desync-ipfrag-pos-tcp=N` — fragment position from transport header (must be multiple of 8, default 32)
+
+**UDP:** `--dpi-desync-ipfrag-pos-udp=N` — fragment position from transport header (must be multiple of 8, default 8)
+
+Combinations like `hopbyhop,ipfrag2` produce: `IPv6 → Hop-by-Hop → Fragment → TCP/UDP` — the DPI sees the Hop-by-Hop header first and may not walk the chain to the transport header.
+
+> ⚠️ `ipfrag1+ipfrag2` cannot be combined. `ipfrag2` requires that the kernel allows sending pre-fragmented packets (may need `echo 1 > /proc/sys/net/ipv4/ip_no_pmtu_disc`).
+
+---
+
+## 6. tpws — Transparent TCP Proxy Mode
+
+`tpws` is an alternative to `nfqws`/`winws`. Instead of operating at the packet level via kernel hooks, it runs as a **SOCKS5 transparent proxy** in user space. Vane exposes this via the **TPWS Proxy Mode** toggle in the Advanced tab.
+
+### nfqws vs tpws
+
+| Property | nfqws / winws | tpws |
+|----------|--------------|------|
+| Level | Packet (kernel + user space) | Stream (TCP proxy) |
+| Kernel module required | Yes (WinDivert / NFQUEUE) | No |
+| Can modify IP headers | Yes (TTL, IP ID, IP flags) | No |
+| Can do IP fragmentation | Yes | No |
+| Can send fakes with bad TTL | Yes | No |
+| TCP segmentation | Yes | Yes (`--split-pos`) |
+| TLS record splitting | No | Yes (`--tlsrec`) |
+| MSS manipulation | Yes (`--mss`) | Yes (`--mss`) |
+| Privilege required | Root / Administrator | No root needed |
+| Performance | Higher (kernel path) | Slightly lower |
+
+### When to use tpws
+
+- When you **cannot load a kernel driver** (e.g., locked-down Linux environment).
+- When **simple TCP splitting** at the stream level is sufficient for your ISP.
+- When you want to **avoid Administrator/root requirements** on the host.
+- As a **fallback** when nfqws/winws fails due to driver conflicts.
+
+### tpws Specific Features
+
+**TLSREC — TLS Record Splitting:**
+
+tpws can split at the **TLS record layer** (inside the TLS record boundary) rather than the TCP segment layer. This is invisible to the TCP layer and can fool DPIs that reassemble TCP but do not reassemble TLS records.
+
+```
+--tlsrec=sni
+```
+Splits TLS records at the SNI boundary. The DPI receives two partial TLS records and cannot extract the SNI.
+
+**MSS — Maximum Segment Size:**
+
+```
+--mss=256
+```
+Advertises a small MSS during the TCP handshake, forcing the kernel to send small TCP segments. Unlike packet-level splitting, this works at the OS TCP stack level.
+
+**Split Positions in tpws:**
+
+tpws supports the same split position markers as nfqws: `method`, `host`, `endhost`, `midsld`, `sniext`, and absolute offsets.
+
+### tpws Traffic Redirection (Linux)
+
+With iptables (redirect to tpws listening on port 1080):
+```bash
+iptables -A OUTPUT -p tcp -m multiport --dports 80,443 \
+  -j REDIRECT --to-ports 1080
+```
+
+With nftables:
+```nftables
+table ip tpws_redir {
+    chain output {
+        type nat hook output priority -100;
+        tcp dport { 80, 443 } redirect to :1080
+    }
+}
+```
+
+---
+
+## 7. Desync Parameter Reference Table
 
 Full reference for all zapret parameters exposed in Vane's Advanced tab:
 
