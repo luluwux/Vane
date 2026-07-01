@@ -6,6 +6,12 @@ import { translations } from '../utils/translations';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './PatternView.module.css';
 
+const DOMAIN_ALIASES: Record<string, string[]> = {
+  'discord.com': ['discordapp.com', 'discordapp.net', 'discord.gg'],
+  'roblox.com': ['robloxlabs.com', 'rbxcdn.com'],
+  'youtube.com': ['youtu.be', 'ytimg.com', 'ggpht.com']
+};
+
 export function PatternView() {
   const {
     bypassMode,
@@ -41,11 +47,25 @@ export function PatternView() {
   }, [bypassMode, whitelistDomains, blacklistDomains]);
 
   const cleanDomains = (text: string) => {
-    return text
+    const lines = text
       .split('\n')
       .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .join('\n');
+      .filter(line => line.length > 0);
+
+    const resultSet = new Set<string>(lines);
+
+    for (const line of lines) {
+      // Clean wildcard prefix (*.example.com -> example.com) to match database aliases
+      const cleanDomain = line.replace(/^\*\./, '');
+      if (DOMAIN_ALIASES[cleanDomain]) {
+        for (const alias of DOMAIN_ALIASES[cleanDomain]) {
+          resultSet.add(alias);
+          resultSet.add(`*.${alias}`);
+        }
+      }
+    }
+
+    return Array.from(resultSet).join('\n');
   };
 
   const handleSave = async () => {

@@ -237,7 +237,7 @@ export function AdvancedView() {
         <div className={styles.titleArea}>
           <h2 className={styles.title}>{t.advancedTitle}</h2>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className={styles.headerActions}>
           {/* Import / Export Buttons */}
           <button 
             className={styles.actionBtn} 

@@ -11,25 +11,25 @@
 /* === CUSTOM DROPDOWN === */
 .dropdownContainer {
   position: relative;
-  width: 100%;
-  margin-top: 16px;
+  width: auto;
+  margin-top: 0;
 }
 
 .presetDropdownBtn {
-  width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
   background-color: #1a1b1e;
   color: #e0e0e0;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 12px 14px;
-  border-radius: 8px;
-  font-size: 0.95rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) inset;
   transition: all 0.2s ease;
+  min-width: 180px;
 }
 
 .presetDropdownBtn:hover {
@@ -125,9 +125,18 @@
 
 .headerRow {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.headerActions {
+  display: flex;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .titleArea {
