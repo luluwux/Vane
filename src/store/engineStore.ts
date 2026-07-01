@@ -241,7 +241,7 @@ export const useEngineStore = create<EngineStore>()(
       proxySocks5: '',
       killSwitch: false,
       watchdog: true,
-      language: 'tr',
+      language: 'en',
 
       // Session değerleri (persist edilmez)
       status: { variant: 'stopped' },
@@ -289,7 +289,12 @@ export const useEngineStore = create<EngineStore>()(
       setProxySocks5: (proxySocks5) => set({ proxySocks5 }),
       setKillSwitch: (killSwitch) => set({ killSwitch }),
       setWatchdog: (watchdog) => set({ watchdog }),
-      setLanguage: (language) => set({ language }),
+      setLanguage: async (language) => {
+        set({ language });
+        try {
+          await emit('sync_language', language);
+        } catch (err) { /* ignore */ }
+      },
 
       appendLog: (content, level = 'info') => set((state) => {
         const newLine: LogLine = {
@@ -334,7 +339,7 @@ export const useEngineStore = create<EngineStore>()(
           }
         } catch (err) {
           console.error("Preset silinemedi:", err);
-          get().appendLog(`[HATA] Preset silinirken hata: ${err}`, 'error');
+          get().appendLog(`[ERROR] Preset deletion failed: ${err}`, 'error');
         }
       },
 
@@ -344,22 +349,22 @@ export const useEngineStore = create<EngineStore>()(
 
         // Seçilen preseti kalıcı olarak kaydet (persist aracılığıyla)
         set({ activePresetId: id, status: { variant: 'starting' } });
-        get().appendLog(`[MOTOR] Başlatılıyor: ${id}`, 'info');
+        get().appendLog(`[ENGINE] Starting: ${id}`, 'info');
 
         try {
           const result = await invoke<EngineStatus>('start_engine_with_dns_guard', { presetId: id });
           set({ status: result });
 
           if (result.variant === 'running') {
-            get().appendLog(`[MOTOR] Bypass aktif (PID: ${result.pid})`, 'info');
+            get().appendLog(`[ENGINE] Bypass active (PID: ${result.pid})`, 'info');
           } else if (result.variant === 'error') {
-            get().appendLog(`[HATA] Motor hatası: ${result.message}`, 'error');
+            get().appendLog(`[ERROR] Engine error: ${result.message}`, 'error');
           }
         } catch (err: any) {
           const errorCode = typeof err === 'object' && err !== null && 'code' in err ? err.code : 'UNKNOWN';
           const errorMsg = typeof err === 'object' && err !== null && 'message' in err ? err.message : String(err);
           set({ status: { variant: 'error', message: errorMsg, code: errorCode } });
-          get().appendLog(`[HATA] Başlatma hatası: ${errorMsg}`, 'error');
+          get().appendLog(`[ERROR] Startup error: ${errorMsg}`, 'error');
         }
       },
 
@@ -367,7 +372,7 @@ export const useEngineStore = create<EngineStore>()(
         try {
           await invoke('stop_engine');
           set({ status: { variant: 'stopped' } });
-          get().appendLog('[MOTOR] Motor durduruldu.', 'warn');
+          get().appendLog('[ENGINE] Engine stopped.', 'warn');
         } catch (err) {
           console.error('Durdurma hatası:', err);
         }

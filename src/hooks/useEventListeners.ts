@@ -54,13 +54,18 @@ export function useEventListeners(): void {
 
     // WM_DEVICECHANGE fired by network/watcher.rs on adapter changes
     register<void>('network_changed', () => {
-      appendLog('[SİSTEM] Network change detected — refreshing DNS status...', 'warn');
+      appendLog('[SYSTEM] Network change detected — refreshing DNS status...', 'warn');
       refreshDnsStatus();
     });
 
     // Keeps activePresetId in sync across the Widget and Settings windows
     register<string>('sync_active_preset', (presetId) => {
       useEngineStore.setState({ activePresetId: presetId });
+    });
+
+    // Keeps language in sync across windows
+    register<'tr' | 'en'>('sync_language', (lang) => {
+      useEngineStore.setState({ language: lang });
     });
 
     return () => {
