@@ -1,5 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, RefreshCw } from 'lucide-react';
+import { useEngineStore } from '../../../store/engineStore';
+import { translations } from '../../../utils/translations';
 import styles from '../../../views/AdvancedView.module.css';
 
 interface UnsavedBannerProps {
@@ -21,6 +23,9 @@ export function UnsavedBanner({
   onCancel,
   onSave,
 }: UnsavedBannerProps) {
+  const { language } = useEngineStore();
+  const t = translations[language];
+
   return (
     <AnimatePresence>
       {isDirty && (
@@ -34,23 +39,23 @@ export function UnsavedBanner({
           <div className={styles.unsavedLeft}>
             <div className={styles.unsavedDot} />
             <div className={styles.unsavedText}>
-              <span className={styles.unsavedTitle}>Unsaved changes</span>
+              <span className={styles.unsavedTitle}>{t.unsavedWarning}</span>
               <input
                 className={`${styles.unsavedNameInput} ${isReset ? styles.unsavedNameInputMuted : ''}`}
                 value={profileName}
                 onChange={(e) => !isReset && setProfileName(e.target.value)}
                 readOnly={isReset}
-                placeholder="Profile name (e.g: Custom DPI Profile)"
+                placeholder={language === 'tr' ? 'Profil adı...' : 'Profile name...'}
               />
             </div>
           </div>
           <div className={styles.unsavedActions}>
             <button className={styles.cancelBtn} onClick={onCancel} disabled={isApplying}>
-              <X size={14} /> Cancel
+              <X size={14} /> {t.cancel}
             </button>
             <button className={styles.saveBtn} onClick={onSave} disabled={!profileName.trim() || isApplying}>
               {isApplying ? <RefreshCw size={14} className={styles.spin} /> : <Check size={14} />}
-              Save
+              {t.save}
             </button>
           </div>
         </motion.div>

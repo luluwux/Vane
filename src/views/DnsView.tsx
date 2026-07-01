@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { Check, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import { useEngineStore } from '../store/engineStore';
+import { translations } from '../utils/translations';
 import styles from './DnsView.module.css';
 
 interface ApplyDnsResult {
@@ -71,7 +72,7 @@ const DnsIcons: Record<string, JSX.Element> = {
   nextdns: <NextDnsIcon />,
   yandex: <YandexIcon />,
   mullvad: <MullvadIcon />,
-  custom: <ShieldCheck size={24} color="#8b5cf6" />,
+  custom: <ShieldCheck size={24} color="#5c7cfa" />,
 };
 
 export function DnsView() {
@@ -92,7 +93,10 @@ export function DnsView() {
     setDnsProtocol,
     setDnsAdBlock,
     setDnsCache,
+    language,
   } = useEngineStore();
+
+  const t = translations[language];
 
   const [forwarder, setForwarder] = useState<ForwarderStatus | null>(null);
   const [isForwarderLoading, setIsForwarderLoading] = useState(false);
@@ -169,12 +173,12 @@ export function DnsView() {
     <div className={styles.view}>
       <header className={styles.header}>
         <div className={styles.titleRow}>
-          <h2 className={styles.title}>DNS Provider</h2>
+          <h2 className={styles.title}>{t.dnsProvider}</h2>
           {!dnsSynced && providers.length === 0 && (
             <RefreshCw className={styles.spin} size={16} color="#5c7cfa" />
           )}
         </div>
-        <p className={styles.subtitle}>Settings are saved to the system automatically when selected.</p>
+        <p className={styles.subtitle}>{t.dnsAutoSaveDesc}</p>
       </header>
 
       {/* F8: DoH Forwarder Banner */}
@@ -182,8 +186,8 @@ export function DnsView() {
         <div className={styles.fwInfo}>
           <ShieldCheck size={18} color={forwarder?.active ? "#4ade80" : "#a1a1aa"} />
           <div>
-            <strong>Local DNS Forwarder (Port 53)</strong>
-            <span>{forwarder?.active ? `Active — Proxying via ${dnsProtocol.toUpperCase()}` : "Inactive — Standard plain DNS used"}</span>
+            <strong>{t.localDnsForwarder}</strong>
+            <span>{forwarder?.active ? t.forwarderActiveDesc.replace('{protocol}', dnsProtocol.toUpperCase()) : t.forwarderInactiveDesc}</span>
           </div>
         </div>
         <button 
@@ -191,17 +195,17 @@ export function DnsView() {
           onClick={toggleForwarder}
           disabled={isForwarderLoading}
         >
-          {isForwarderLoading ? "..." : forwarder?.active ? "Stop Forwarder" : "Start Forwarder"}
+          {isForwarderLoading ? "..." : forwarder?.active ? t.stopForwarder : t.startForwarder}
         </button>
       </div>
 
       {/* Forwarder Configuration Panel */}
       <div className={styles.configPanel}>
-        <h3 className={styles.panelTitle}>Forwarder Configuration</h3>
+        <h3 className={styles.panelTitle}>{t.forwarderConfig}</h3>
         <div className={styles.configGrid}>
           {/* Protocol Selection */}
           <div className={styles.configItem}>
-            <label className={styles.configLabel}>Transport Protocol</label>
+            <label className={styles.configLabel}>{t.transportProtocol}</label>
             <select
               className={styles.select}
               value={dnsProtocol}
@@ -216,8 +220,8 @@ export function DnsView() {
           {/* AdBlock Toggle */}
           <div className={styles.configItemRow}>
             <div className={styles.toggleText}>
-              <span className={styles.toggleTitle}>Local AdBlock & Malware Filter</span>
-              <span className={styles.toggleDesc}>Block advertising and telemetry domains using StevenBlack list.</span>
+              <span className={styles.toggleTitle}>{t.localAdblock}</span>
+              <span className={styles.toggleDesc}>{t.localAdblockDesc}</span>
             </div>
             <div className={styles.switchWrapper}>
               <input
@@ -234,8 +238,8 @@ export function DnsView() {
           {/* DNS Cache Toggle */}
           <div className={styles.configItemRow}>
             <div className={styles.toggleText}>
-              <span className={styles.toggleTitle}>Smart DNS Cache</span>
-              <span className={styles.toggleDesc}>Cache DNS records locally in memory to speed up browsing load times.</span>
+              <span className={styles.toggleTitle}>{t.dnsCache}</span>
+              <span className={styles.toggleDesc}>{t.dnsCacheDesc}</span>
             </div>
             <div className={styles.switchWrapper}>
               <input
@@ -277,8 +281,8 @@ export function DnsView() {
             <div className={styles.badge}><Check size={12} strokeWidth={3} /></div>
           )}
           <div className={styles.icon}>{DnsIcons.custom}</div>
-          <div className={styles.name}>Custom</div>
-          <div className={styles.ip}>Manual Entry</div>
+          <div className={styles.name}>{t.customDnsEntry}</div>
+          <div className={styles.ip}>{t.manualEntry}</div>
         </button>
       </div>
 
@@ -294,17 +298,17 @@ export function DnsView() {
             <div className={styles.customLeft}>
               <div className={styles.customDot} />
               <div className={styles.customText}>
-                <span className={styles.customTitle}>CUSTOM DNS SETUP</span>
+                <span className={styles.customTitle}>{t.customDnsSetup}</span>
                 <div className={styles.customInputs}>
                   <input
                     type="text"
-                    placeholder="Primary DNS"
+                    placeholder={language === 'tr' ? 'Birincil DNS' : 'Primary DNS'}
                     value={customPrimary}
                     onChange={(e) => setDnsCustom(e.target.value, customSecondary)}
                   />
                   <input
                     type="text"
-                    placeholder="Secondary DNS"
+                    placeholder={language === 'tr' ? 'İkincil DNS' : 'Secondary DNS'}
                     value={customSecondary}
                     onChange={(e) => setDnsCustom(customPrimary, e.target.value)}
                   />
@@ -320,14 +324,14 @@ export function DnsView() {
                   saveToBackend('google');
                 }}
               >
-                <X size={14} /> Cancel
+                <X size={14} /> {t.cancel}
               </button>
               <button
                 className={styles.saveBtn}
                 onClick={() => saveToBackend('custom', customPrimary, customSecondary)}
                 disabled={!customPrimary}
               >
-                <Check size={14} /> Save
+                <Check size={14} /> {t.save}
               </button>
             </div>
           </motion.div>

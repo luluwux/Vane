@@ -2,33 +2,46 @@ import { ServerCrash } from 'lucide-react';
 import styles from '../../../views/AdvancedView.module.css';
 import { Toggle } from '../ui/Toggle';
 import { NumberInput } from '../ui/NumberInput';
-import { CheckboxList } from '../ui/CheckboxList';
+import { useEngineStore } from '../../../store/engineStore';
 import type { AdvancedConfig } from '../../../store/engineStore';
-
-const FOOLING_OPTIONS = ['md5sig', 'badseq', 'badsum', 'datanoack'];
 
 interface Props {
   config: AdvancedConfig;
   update: <K extends keyof AdvancedConfig>(key: K, value: AdvancedConfig[K]) => void;
 }
 
+const DESYNC_OPTIONS = [
+  { value: 'none', label: 'None / Yok' },
+  { value: 'split', label: 'Split' },
+  { value: 'split2', label: 'Split2' },
+  { value: 'disorder', label: 'Disorder' },
+  { value: 'fake', label: 'Fake' },
+  { value: 'oob', label: 'OOB' },
+  { value: 'syndata', label: 'Syndata' },
+];
+
 export function DpiDesyncCard({ config: c, update }: Props) {
+  const { language } = useEngineStore();
+
+  const isTr = language === 'tr';
+
   return (
     <div className={styles.card}>
       <div className={styles.cardHeader}>
         <ServerCrash size={18} className={styles.cardIcon} />
-        <h3>DPI Desynchronization</h3>
+        <h3>{isTr ? 'DPI Desenkronizasyon Yöntemleri' : 'DPI Desynchronization'}</h3>
       </div>
       <div className={styles.settingsList}>
+        {/* General Desync Method */}
         <div className={styles.settingRow}>
           <div className={styles.settingInfo}>
-            <label>Desync Method</label>
-            <span>Packet splitting or corruption tactic. (--dpi-desync)</span>
+            <label>{isTr ? 'Genel Yöntem' : 'General Method'}</label>
+            <span>{isTr ? 'Genel paket bölme veya manipülasyon taktiği. (--dpi-desync)' : 'General packet splitting or corruption tactic. (--dpi-desync)'}</span>
           </div>
           <div className={styles.flexCol}>
             <select className={styles.selectBox} value={c.desyncMethod} onChange={(e) => update('desyncMethod', e.target.value)}>
               <option value="none">None</option>
-              <option value="split">Split (Default)</option>
+              <option value="split">Split</option>
               <option value="split2">Split2</option>
               <option value="disorder">Disorder</option>
               <option value="fake">Fake</option>
@@ -36,41 +49,139 @@ export function DpiDesyncCard({ config: c, update }: Props) {
               <option value="custom">Custom</option>
             </select>
             {c.desyncMethod === 'custom' && (
-              <input type="text" className={`${styles.textInput} ${styles.mt2}`} placeholder="e.g: fake,multidisorder" value={c.customDesyncMethod} onChange={(e) => update('customDesyncMethod', e.target.value)} />
+              <input type="text" className={`${styles.textInput} ${styles.mt2}`} placeholder="örn: fake,multidisorder" value={c.customDesyncMethod} onChange={(e) => update('customDesyncMethod', e.target.value)} />
             )}
           </div>
         </div>
 
+        {/* Any Protocol */}
         <div className={styles.settingRow}>
           <div className={styles.settingInfo}>
-            <label>Any Protocol</label>
-            <span>Apply to all protocols, not just HTTP/S.</span>
+            <label>{isTr ? 'Tüm Protokoller' : 'Any Protocol'}</label>
+            <span>{isTr ? 'Sadece HTTP/S değil, tüm giden protokollere uygula. (--dpi-desync-any-protocol)' : 'Apply to all outbound protocols, not just HTTP/S. (--dpi-desync-any-protocol)'}</span>
           </div>
           <Toggle checked={c.anyProtocol} onChange={(v) => update('anyProtocol', v)} />
         </div>
 
+        {/* Cutoff */}
         <div className={styles.settingRow}>
           <div className={styles.settingInfo}>
-            <label>Split Position</label>
-            <span>At which byte the packet is split.</span>
+            <label>{isTr ? 'Desync Kesme Limiti (Cutoff)' : 'Desync Cutoff'}</label>
+            <span>{isTr ? 'Kaç paketten sonra manipülasyonun duracağını belirler (örn: d3). (--dpi-desync-cutoff)' : 'Number of packets or bytes to desync before stopping (e.g. d3). (--dpi-desync-cutoff)'}</span>
           </div>
-          <NumberInput value={c.splitPosition} min={1} max={40} onChange={(v) => update('splitPosition', v)} />
+          <input 
+            type="text" 
+            className={styles.textInput} 
+            value={c.desyncCutoff} 
+            onChange={(e) => update('desyncCutoff', e.target.value)}
+            placeholder="e.g. d3"
+          />
         </div>
 
+        {/* HTTP Specific desync */}
         <div className={styles.settingRow}>
           <div className={styles.settingInfo}>
-            <label>Desync Repeats</label>
-            <span>How many times the manipulation will be repeated.</span>
+            <label>{isTr ? 'HTTP Özel Yöntemi' : 'HTTP Specific Strategy'}</label>
+            <span>{isTr ? 'HTTP bağlantılarına özel manipülasyon taktiği. (--dpi-desync-http)' : 'Desync tactic applied specifically to HTTP connections. (--dpi-desync-http)'}</span>
           </div>
-          <NumberInput value={c.desyncRepeats} min={1} max={20} onChange={(v) => update('desyncRepeats', v)} />
+          <select className={styles.selectBox} value={c.desyncHttp} onChange={(e) => update('desyncHttp', e.target.value)}>
+            {DESYNC_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
         </div>
 
+        {/* HTTPS (TLS) Specific desync */}
         <div className={styles.settingRow}>
           <div className={styles.settingInfo}>
-            <label>Desync Fooling</label>
-            <span>Packet signature changes to fool DPI.</span>
+            <label>{isTr ? 'HTTPS (TLS) Özel Yöntemi' : 'HTTPS (TLS) Specific Strategy'}</label>
+            <span>{isTr ? 'HTTPS/TLS ClientHello için özel manipülasyon taktiği. (--dpi-desync-https)' : 'Desync tactic applied to HTTPS/TLS connections. (--dpi-desync-https)'}</span>
           </div>
-          <CheckboxList options={FOOLING_OPTIONS} selected={c.desyncFooling} onChange={(vals) => update('desyncFooling', vals)} />
+          <select className={styles.selectBox} value={c.desyncHttps} onChange={(e) => update('desyncHttps', e.target.value)}>
+            {DESYNC_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+        </div>
+
+        {/* QUIC Specific desync */}
+        <div className={styles.settingRow}>
+          <div className={styles.settingInfo}>
+            <label>{isTr ? 'QUIC Özel Yöntemi' : 'QUIC Specific Strategy'}</label>
+            <span>{isTr ? 'QUIC/UDP bağlantılarına özel manipülasyon taktiği. (--dpi-desync-quic)' : 'Desync tactic applied specifically to QUIC packets. (--dpi-desync-quic)'}</span>
+          </div>
+          <select className={styles.selectBox} value={c.desyncQuic} onChange={(e) => update('desyncQuic', e.target.value)}>
+            <option value="none">None / Yok</option>
+            <option value="split">Split</option>
+            <option value="disorder">Disorder</option>
+            <option value="fake">Fake</option>
+          </select>
+        </div>
+
+        {/* Second Stage Desync */}
+        <div className={styles.settingRow}>
+          <div className={styles.settingInfo}>
+            <label>{isTr ? 'İkinci Aşama Desync' : 'Second Stage Desync'}</label>
+            <span>{isTr ? 'İlk aşama başarısız olduğunda devreye girecek yedek taktik. (--dpi-desync2)' : 'Backup strategy if the first desync fails to fool DPI. (--dpi-desync2)'}</span>
+          </div>
+          <select className={styles.selectBox} value={c.desync2} onChange={(e) => update('desync2', e.target.value)}>
+            <option value="none">None / Yok</option>
+            <option value="split">Split</option>
+            <option value="split2">Split2</option>
+            <option value="disorder">Disorder</option>
+            <option value="fake">Fake</option>
+            <option value="oob">OOB</option>
+            <option value="syndata">Syndata</option>
+          </select>
+        </div>
+
+        {/* Split Position (General) */}
+        <div className={styles.settingRow}>
+          <div className={styles.settingInfo}>
+            <label>{isTr ? 'Genel Bölme Konumu' : 'General Split Position'}</label>
+            <span>{isTr ? 'Paketin bölüneceği genel byte konumu. (--dpi-desync-split-pos)' : 'At which byte the general packets are split. (--dpi-desync-split-pos)'}</span>
+          </div>
+          <NumberInput value={c.splitPosition} min={1} max={1500} onChange={(v) => update('splitPosition', v)} />
+        </div>
+
+        {/* HTTP Split Type */}
+        <div className={styles.settingRow}>
+          <div className={styles.settingInfo}>
+            <label>{isTr ? 'HTTP Bölme Türü' : 'HTTP Split Type'}</label>
+            <span>{isTr ? 'HTTP bölme yöntemi (method / host). (--dpi-desync-split-http-req)' : 'Select HTTP split tactic (method / host). (--dpi-desync-split-http-req)'}</span>
+          </div>
+          <select className={styles.selectBox} value={c.splitHttpReq} onChange={(e) => update('splitHttpReq', e.target.value)}>
+            <option value="none">None / Yok</option>
+            <option value="method">Method</option>
+            <option value="host">Host</option>
+          </select>
+        </div>
+
+        {/* HTTP Split Position */}
+        <div className={styles.settingRow}>
+          <div className={styles.settingInfo}>
+            <label>{isTr ? 'HTTP Bölme Konumu' : 'HTTP Split Position'}</label>
+            <span>{isTr ? 'HTTP isteklerinin bölüneceği byte konumu. (--dpi-desync-split-pos-http-req)' : 'Byte position to split HTTP requests. (--dpi-desync-split-pos-http-req)'}</span>
+          </div>
+          <NumberInput value={c.splitPosHttpReq} min={0} max={1500} onChange={(v) => update('splitPosHttpReq', v)} />
+        </div>
+
+        {/* TLS Split Type */}
+        <div className={styles.settingRow}>
+          <div className={styles.settingInfo}>
+            <label>{isTr ? 'TLS Bölme Türü' : 'TLS Split Type'}</label>
+            <span>{isTr ? 'HTTPS/TLS bölme yöntemi (sni / snh). (--dpi-desync-split-tls)' : 'Select TLS ClientHello split tactic (sni / snh). (--dpi-desync-split-tls)'}</span>
+          </div>
+          <select className={styles.selectBox} value={c.splitTls} onChange={(e) => update('splitTls', e.target.value)}>
+            <option value="none">None / Yok</option>
+            <option value="sni">SNI</option>
+            <option value="snh">SNH (Server Name Hint)</option>
+          </select>
+        </div>
+
+        {/* TLS Split Position */}
+        <div className={styles.settingRow}>
+          <div className={styles.settingInfo}>
+            <label>{isTr ? 'TLS Bölme Konumu' : 'TLS Split Position'}</label>
+            <span>{isTr ? 'TLS ClientHello isteklerinin bölüneceği byte konumu. (--dpi-desync-split-pos-tls)' : 'Byte position to split TLS ClientHello packets. (--dpi-desync-split-pos-tls)'}</span>
+          </div>
+          <NumberInput value={c.splitPosTls} min={0} max={1500} onChange={(v) => update('splitPosTls', v)} />
         </div>
       </div>
     </div>

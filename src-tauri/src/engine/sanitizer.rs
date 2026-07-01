@@ -1,85 +1,58 @@
-/* 
-   Argument sanitization layer for winws.exe invocation.
-   This module implements the Rust-side (backend) defense-in-depth validation
-   for preset arguments. It is the *authoritative* security gate — the
-   frontend `presetValidator.ts` is a UX convenience only.
-   Architecture: Called inside `EngineManager::start()` before spawn,
-   ensuring no IPC path (import, remote presets, direct invoke) can
-   bypass validation. 
-*/
-
 use crate::engine::error::EngineError;
 
-// Maximum number of arguments a preset may carry.
 const MAX_ARG_COUNT: usize = 30;
-
-// Maximum character length of a single argument string.
 const MAX_ARG_LEN: usize = 128;
 
-/* 
-   Allowlist of argument prefixes accepted by winws.exe & nfqws.
-   Any argument not matching at least one prefix is rejected. 
-*/
 const ALLOWED_PREFIXES: &[&str] = &[
-    // Network filter flags
     "--filter-tcp=",
     "--filter-udp=",
     "--wf-tcp=",
     "--wf-udp=",
-
-    // Windows WinDivert capture flags (CRITICAL: without this all Windows presets fail)
     "--windivert=",
     "--windivert",
-
-    // WinDivert filter expression tokens (e.g. "tcp.DstPort==443", "udp.DstPort==443")
     "tcp.",
     "udp.",
     "icmp.",
-
-    // Linux nfqueue capture flag
     "--qnum=",
-
-    // Whitelist / Hostlist flags
     "--wl=",
     "--hostlist=",
-
-    // DPI desynchronisation flags
+    "--ipset=",
     "--dpi-desync=",
+    "--dpi-desync-http=",
+    "--dpi-desync-https=",
+    "--dpi-desync-quic=",
     "--dpi-desync-split-pos=",
     "--dpi-desync-repeats=",
     "--dpi-desync-fooling=",
     "--dpi-desync-ttl=",
+    "--dpi-desync-ttl-ext=",
     "--dpi-desync-cutoff=",
     "--dpi-desync-any-protocol",
     "--dpi-desync-autottl",
-
-    // Packet parameters
+    "--dpi-desync-split-http-req=",
+    "--dpi-desync-split-pos-http-req=",
+    "--dpi-desync-split-tls=",
+    "--dpi-desync-split-pos-tls=",
+    "--dpi-desync-fake-tls-sni=",
+    "--dpi-desync-fake-http=",
+    "--dpi-desync-fake-tls=",
+    "--dpi-desync-fake-quic=",
+    "--dpi-desync2=",
     "--mss=",
     "--new-ttl=",
     "--max-payload=",
-
-    // Verbosity (read-only, no side effects)
+    "--tcp-window-size=",
+    "--bind-addr=",
+    "--socks=",
+    "--http=",
     "--debug",
     "--debug2",
 ];
 
-// Characters that are forbidden in *any* argument value.
-/* 
-   These are Unix/Windows shell metacharacters that could be used
-   to inject additional commands if the argument is ever passed through
-   a shell interpreter. Even though we use `Command::new()` with an
-   args array (not shell), defense-in-depth demands their exclusion. 
-*/
 const FORBIDDEN_CHARS: &[char] = &[
     '&', ';', '|', '`', '$', '<', '>', '\'', '"', '\\', '/', '\n', '\r', '\0',
 ];
 
-// Validates a preset's argument list against the security policy.
-/* 
-   Errors: Returns `EngineError::InvalidPreset` with a descriptive message on
-   the first violation found. Does NOT return all violations at once —
-   fail-fast on first bad arg keeps the logic simple. 
-*/
 pub fn validate_preset_args(args: &[String]) -> Result<(), EngineError> {
     if args.len() > MAX_ARG_COUNT {
         return Err(EngineError::InvalidPreset(format!(
@@ -96,7 +69,6 @@ pub fn validate_preset_args(args: &[String]) -> Result<(), EngineError> {
 }
 
 fn validate_single_arg(arg: &str) -> Result<(), EngineError> {
-    // ─── Length guard ──────────────────────────────────────────────────────
     if arg.len() > MAX_ARG_LEN {
         return Err(EngineError::InvalidPreset(format!(
             "Argüman çok uzun ({} karakter > {} limit): \"{}…\"",
@@ -105,17 +77,12 @@ fn validate_single_arg(arg: &str) -> Result<(), EngineError> {
         )));
     }
 
-    // ─── Empty arg guard ───────────────────────────────────────────────────
     if arg.is_empty() {
         return Err(EngineError::InvalidPreset(
             "Boş argüman kabul edilmiyor.".into()
         ));
     }
 
-    /* 
-       Forbidden character check: This runs before the allowlist so injection attempts 
-       produce a clear error rather than an opaque "unknown argument" message. 
-    */
     for &ch in FORBIDDEN_CHARS {
         if arg.contains(ch) {
             return Err(EngineError::InvalidPreset(format!(
@@ -125,10 +92,7 @@ fn validate_single_arg(arg: &str) -> Result<(), EngineError> {
         }
     }
 
-    // ─── Allowlist check ───────────────────────────────────────────────────
     let is_allowed = ALLOWED_PREFIXES.iter().any(|prefix| {
-        // Exact match for flags without values (e.g. "--dpi-desync-autottl")
-        // or prefix match for flags with values (e.g. "--mss=1300")
         arg == *prefix || arg.starts_with(prefix)
     });
 
@@ -140,7 +104,6 @@ fn validate_single_arg(arg: &str) -> Result<(), EngineError> {
         )));
     }
 
-    // Specific sub-validations
     if arg.starts_with("--hostlist=") {
         let val = &arg["--hostlist=".len()..];
         validate_hostlist_value(val)?;
@@ -200,18 +163,12 @@ fn validate_ip_or_domain(val: &str) -> Result<(), EngineError> {
     Ok(())
 }
 
-/* 
-   Sanitizes a potentially malicious string for safe inclusion in log messages.
-   Truncates and replaces non-printable characters. 
-*/
 fn sanitize_for_log(s: &str) -> String {
     s.chars()
         .take(48)
         .map(|c| if c.is_control() { '?' } else { c })
         .collect()
 }
-
-// ─── Unit Tests ────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
@@ -280,7 +237,6 @@ mod tests {
 
     #[test]
     fn test_path_traversal_rejected() {
-        // Ensure directory traversal can't sneak through (even with allowed prefixes)
         let payloads = vec![
             "../../../etc/passwd",
             "--hostlist=../../../etc/passwd",
@@ -299,8 +255,6 @@ mod tests {
 
     #[test]
     fn test_windivert_args_pass() {
-        // Validates that Windows WinDivert capture flags are accepted.
-        // These were the critical missing prefixes that caused the "Logic Bomb".
         let args = vec![
             "--windivert".to_string(),
             "--windivert=filter".to_string(),
@@ -313,7 +267,6 @@ mod tests {
 
     #[test]
     fn test_linux_qnum_arg_passes() {
-        // Validates that the Linux NFQUEUE argument injected by prepare_args is accepted.
         let args = vec!["--qnum=200".to_string()];
         assert!(validate_preset_args(&args).is_ok());
     }
@@ -327,7 +280,6 @@ mod tests {
         assert!(validate_preset_args(&args).is_ok());
     }
 
-    // --- Proptest Fuzzing ---
     use proptest::prelude::*;
 
     proptest! {

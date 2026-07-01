@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useEngineStore } from '../store/engineStore';
-import { Shield, RefreshCw, Wifi, Activity, Plus, X, Download } from 'lucide-react';
+import { Shield, RefreshCw, Wifi, Plus, X, Download, Globe } from 'lucide-react';
+import { translations } from '../utils/translations';
 import styles from './HomeView.module.css';
 
 type UnlistenFn = () => void;
@@ -18,9 +19,12 @@ export function HomeView() {
     selectedDnsId,
     healthCheckTargets,
     setHealthCheckTargets,
+    language,
+    setLanguage,
   } = useEngineStore();
 
   const isRunning = status.variant === 'running';
+  const t = translations[language];
   const activePreset = presets.find((p) => p.id === activePresetId);
   const presetLabel = activePreset?.label ?? activePresetId ?? 'Default';
 
@@ -57,9 +61,7 @@ export function HomeView() {
   // Remote presets state
   const [remoteStatus, setRemoteStatus] = useState<'idle' | 'syncing' | 'offline' | 'updated'>('idle');
 
-  // Real-time DNS activity graph state
-  const [activityData, setActivityData] = useState<number[]>(new Array(30).fill(0));
-  const activityCountRef = useRef(0);
+
 
   // Health check targets state
   const [newTarget, setNewTarget] = useState('');
@@ -146,30 +148,9 @@ export function HomeView() {
       setRemoteStatus('offline');
     });
 
-    // Listen to dns_activity event
-    const setupDnsListener = async () => {
-      const unlisten = await listen('dns_activity', () => {
-        activityCountRef.current += 1;
-      });
-      return unlisten;
-    };
-
-    let dnsUnlistenPromise = setupDnsListener();
-
-    // Set up a 1-second interval to slide the data
-    const interval = setInterval(() => {
-      setActivityData((prev) => {
-        const next = [...prev.slice(1), activityCountRef.current];
-        activityCountRef.current = 0; // reset for next second
-        return next;
-      });
-    }, 1000);
-
     return () => {
       active = false;
-      clearInterval(interval);
       cleanupFns.forEach((fn) => fn());
-      dnsUnlistenPromise.then((unlisten) => unlisten());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -201,20 +182,7 @@ export function HomeView() {
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  // Generate SVG path for the line
-  const maxVal = Math.max(...activityData, 5); // ensure some minimum height
-  const width = 500;
-  const height = 80;
-  const padding = 5;
 
-  const points = activityData.map((val, idx) => {
-    const x = (idx / (activityData.length - 1)) * (width - padding * 2) + padding;
-    const y = height - (val / maxVal) * (height - padding * 2) - padding;
-    return { x, y };
-  });
-
-  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-  const areaD = `${pathD} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`;
 
   const handleInstallUpdate = async () => {
     try {
@@ -270,68 +238,38 @@ export function HomeView() {
           </div>
         </div>
       )}
-      {/* ─── Real-Time Analytics Card ────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.02 }}
-        className={styles.infoCard}
-      >
-        <h3 className={styles.cardTitle}>Real-time DNS Activity</h3>
-        <p style={{ fontSize: 10, color: '#888', margin: '0 0 8px 0' }}>
-          Monitors incoming DNS forwarder queries per second.
-        </p>
-        
-        <div style={{ position: 'relative', width: '100%', height: `${height}px`, background: 'rgba(0, 0, 0, 0.2)', borderRadius: 6, overflow: 'hidden' }}>
-          <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: 'block' }}>
-            <defs>
-              <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
-              </linearGradient>
-            </defs>
-            {/* Area */}
-            <path d={areaD} fill="url(#chartGrad)" />
-            {/* Line */}
-            <path d={pathD} fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          
-          <div style={{ position: 'absolute', top: 6, right: 8, fontSize: 10, color: '#60a5fa', fontWeight: 'bold' }}>
-            {activityData[activityData.length - 1]} Q/s
-          </div>
-        </div>
-      </motion.div>
+
 
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         className={styles.infoCard}
       >
-        <h3 className={styles.cardTitle}>Connectivity information</h3>
+        <h3 className={styles.cardTitle}>{t.connectivityInfo}</h3>
         <div className={styles.infoRow}>
-          <span>Connection:</span>
+          <span>{t.connection}</span>
           <span className={isRunning ? styles.activeText : styles.inactiveText}>
-            {isRunning ? '● Active' : '○ Inactive'}
+            {isRunning ? `● ${t.active}` : `○ ${t.inactive}`}
           </span>
         </div>
         <div className={styles.infoRow}>
-          <span>Preset:</span>
+          <span>{t.preset}</span>
           <span>{presetLabel}</span>
         </div>
         <div className={styles.infoRow}>
-          <span>ISP name:</span>
+          <span>{t.ispName}</span>
           <span className={styles.truncate} style={{ color: geoData.isp ? undefined : 'rgba(255,255,255,0.3)', fontStyle: geoData.isp ? undefined : 'italic' }}>
             {geoData.isp ?? 'N/A'}
           </span>
         </div>
         <div className={styles.infoRow}>
-          <span>Org:</span>
+          <span>{t.org}</span>
           <span className={styles.truncate} style={{ color: geoData.org ? undefined : 'rgba(255,255,255,0.3)', fontStyle: geoData.org ? undefined : 'italic' }}>
             {geoData.org ?? 'N/A'}
           </span>
         </div>
         <div className={styles.infoRow}>
-          <span>Location:</span>
+          <span>{language === 'tr' ? 'Konum:' : 'Location:'}</span>
           <span style={{ color: (geoData.city || geoData.country) ? undefined : 'rgba(255,255,255,0.3)', fontStyle: (geoData.city || geoData.country) ? undefined : 'italic' }}>
             {(geoData.city && geoData.country)
               ? `${geoData.city}, ${geoData.country}`
@@ -339,7 +277,7 @@ export function HomeView() {
           </span>
         </div>
         <div className={styles.infoRow}>
-          <span>Active DNS:</span>
+          <span>{language === 'tr' ? 'Aktif DNS:' : 'Active DNS:'}</span>
           <span>{activeDns}</span>
         </div>
       </motion.div>
@@ -350,40 +288,40 @@ export function HomeView() {
         transition={{ delay: 0.05 }}
         className={styles.infoCard}
       >
-        <h3 className={styles.cardTitle}>Your device</h3>
+        <h3 className={styles.cardTitle}>{language === 'tr' ? 'Cihazınız' : 'Your device'}</h3>
         <div className={styles.infoRow}>
-          <span>Public IP:</span>
+          <span>{language === 'tr' ? 'Harici IP:' : 'Public IP:'}</span>
           <span
             className={`${styles.ipText} ${!showIp ? styles.blurredText : ''}`}
             onClick={() => setShowIp(!showIp)}
           >
-            {geoData.query}
+            {geoData.query === 'Checking...' && language === 'tr' ? 'Kontrol ediliyor...' : geoData.query}
           </span>
         </div>
         <div className={styles.infoRow}>
-          <span>Timezone:</span>
+          <span>{language === 'tr' ? 'Saat Dilimi:' : 'Timezone:'}</span>
           <span>{timezone}</span>
         </div>
         <div className={styles.infoRow}>
-          <span>OS:</span>
+          <span>{language === 'tr' ? 'İşletim Sistemi:' : 'OS:'}</span>
           <span style={{ textTransform: 'capitalize' }}>{sysInfo.os}</span>
         </div>
         <div className={styles.divider} />
       </motion.div>
 
-      {/* ─── Auto-Start ─────────────────────────────────────────── */}
+      {/* ─── Auto-Start & System Settings ─────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.1 }}
         className={styles.infoCard}
       >
-        <h3 className={styles.cardTitle}>System</h3>
+        <h3 className={styles.cardTitle}>{t.system}</h3>
 
         <div className={styles.infoRow} style={{ justifyContent: 'space-between' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             {!isElevated && <Shield size={12} style={{ color: '#f59e0b' }} />}
-            Launch at startup
+            {t.launchAtStartup}
           </span>
           <button
             onClick={handleAutostartToggle}
@@ -402,15 +340,15 @@ export function HomeView() {
               transition: 'all 0.15s',
               opacity: !isElevated ? 0.5 : 1,
             }}
-            title={!isElevated ? 'Requires administrator privileges' : undefined}
+            title={!isElevated ? (language === 'tr' ? 'Yönetici yetkileri gerektirir' : 'Requires administrator privileges') : undefined}
           >
-            {autostartLoading ? '...' : autostartEnabled ? 'Enabled' : 'Disabled'}
+            {autostartLoading ? '...' : autostartEnabled ? (language === 'tr' ? 'Etkin' : 'Enabled') : (language === 'tr' ? 'Devre Dışı' : 'Disabled')}
           </button>
         </div>
 
         {!isElevated && (
           <p style={{ fontSize: 10, color: '#f59e0b', margin: '4px 0 0', lineHeight: 1.4 }}>
-            🛡️ Run Vane as Administrator to enable auto-start.
+            {t.requiresAdmin}
           </p>
         )}
 
@@ -424,13 +362,13 @@ export function HomeView() {
 
         {/* Remote Presets Sync */}
         <div className={styles.infoRow} style={{ justifyContent: 'space-between' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }} title={t.remoteSyncTooltip}>
             <Wifi size={12} style={{
               color: remoteStatus === 'offline' ? '#f59e0b'
                 : remoteStatus === 'updated' ? '#22c55e'
                 : 'rgba(255,255,255,0.5)'
             }} />
-            Remote presets
+            {t.remotePresets}
           </span>
           <button
             onClick={handleManualSync}
@@ -453,10 +391,10 @@ export function HomeView() {
                 ? { animation: 'spin 0.8s linear infinite' }
                 : undefined}
             />
-            {remoteStatus === 'offline' ? 'Offline'
-              : remoteStatus === 'updated' ? 'Updated!'
-              : remoteStatus === 'syncing' ? 'Syncing'
-              : 'Sync'}
+            {remoteStatus === 'offline' ? t.offline
+              : remoteStatus === 'updated' ? (language === 'tr' ? 'Güncellendi!' : 'Updated!')
+              : remoteStatus === 'syncing' ? t.syncing
+              : (language === 'tr' ? 'Eşitle' : 'Sync')}
           </button>
         </div>
 
@@ -464,12 +402,11 @@ export function HomeView() {
 
         {/* Health Check Targets */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600 }}>
-            <Activity size={12} style={{ color: '#8b5cf6' }} />
-            Health Check Targets
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600 }}>
+            {t.healthCheck}
           </span>
           <p style={{ fontSize: 10, color: '#888', margin: 0 }}>
-            Checks connectivity. Maximum 3 targets can be added.
+            {t.healthCheckDesc}
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -501,7 +438,7 @@ export function HomeView() {
                     alignItems: 'center',
                     padding: 2
                   }}
-                  title="Remove"
+                  title={language === 'tr' ? 'Kaldır' : 'Remove'}
                 >
                   <X size={12} />
                 </button>
@@ -512,7 +449,7 @@ export function HomeView() {
               <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
                 <input
                   type="text"
-                  placeholder="e.g. youtube.com"
+                  placeholder={language === 'tr' ? 'örn. youtube.com' : 'e.g. youtube.com'}
                   value={newTarget}
                   onChange={(e) => setNewTarget(e.target.value)}
                   onKeyDown={(e) => {
@@ -549,6 +486,34 @@ export function HomeView() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className={styles.divider} />
+
+        {/* Language Selector */}
+        <div className={styles.infoRow} style={{ justifyContent: 'space-between', marginTop: 4 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Globe size={12} style={{ color: 'rgba(255,255,255,0.5)' }} />
+            {t.language}
+          </span>
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as 'tr' | 'en')}
+            style={{
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 5,
+              padding: '2px 6px',
+              fontSize: 11,
+              fontWeight: 600,
+              color: 'white',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="tr" style={{ background: '#18181b', color: 'white' }}>Türkçe</option>
+            <option value="en" style={{ background: '#18181b', color: 'white' }}>English</option>
+          </select>
         </div>
       </motion.div>
     </div>

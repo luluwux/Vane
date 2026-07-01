@@ -5,353 +5,888 @@
 <h1 align="center">Vane DPI</h1>
 
 <p align="center">
-  <strong>Gelişmiş DPI Engeli Aşma ve Ağ Güvenliği Kontrol Merkezi</strong>
+  <strong>Gelişmiş DPI Engeli Aşma ve Şifreli DNS Kontrol Merkezi — Zapret ile Güçlendirilmiş</strong>
 </p>
 
 <p align="center">
-  <a href="README.md">[![en](https://img.shields.io/badge/lang-en-red.svg)](README.md)</a>
+  <a href="README.md"><img src="https://img.shields.io/badge/lang-en-red.svg" alt="en"></a>
+  <img src="https://img.shields.io/github/actions/workflow/status/luluwux/Vane/releases.yml?style=flat-square&label=derleme" alt="Derleme Durumu">
+  <img src="https://img.shields.io/github/license/luluwux/Vane?style=flat-square&color=blue" alt="Lisans">
+  <img src="https://img.shields.io/github/v/release/luluwux/Vane?style=flat-square" alt="Sürüm">
+  <img src="https://img.shields.io/discord/luppux?style=flat-square&logo=discord&color=5865F2" alt="Discord">
 </p>
 
 ---
 
 ## İçindekiler
 
-- [1. Genel Bakış ve Proje Hedefleri](#1-genel-bakış-ve-proje-hedefleri)
-- [2. Derin Paket İnceleme (DPI) Nasıl Çalışır](#2-derin-paket-inceleme-dpi-nasıl-çalışır)
-  - [2.1. Pasif DPI ve Aktif DPI Karşılaştırması](#21-pasif-dpi-ve-aktif-dpi-karşılaştırması)
-  - [2.2. SNI ve Hostname Ayıklama Süreci](#22-sni-ve-hostname-ayıklama-süreci)
-  - [2.3. Blok Enjeksiyonu (RST ve Yönlendirmeler)](#23-blok-enjeksiyonu-rst-ve-yönlendirmeler)
-  - [2.4. DNS Zehirlenmesi (Poisoning)](#24-dns-zehirlenmesi-poisoning)
-- [3. Zapret Mimarisi ve nfqws/winws Çekirdeği](#3-zapret-mimarisi-ve-nfqwswinws-çekirdeği)
-- [4. Gelişmiş Bypass Tekniklerinin Detaylı Açıklamaları](#4-gelişmiş-bypass-tekniklerinin-detaylı-açıklamaları)
-  - [4.1. TCP Segmentasyonu ve Paket Sıralaması](#41-tcp-segmentasyonu-ve-paket-sıralaması)
-  - [4.2. Sahte Paket Enjeksiyonu ve Fooling (Yanıltma) Yöntemleri](#42-sahte-paket-enjeksiyonu-ve-fooling-yanıltma-yöntemleri)
-  - [4.3. TLS ClientHello Sahte Paket Özelleştirmeleri](#43-tls-clienthello-sahte-paket-özelleştirmeleri)
-  - [4.4. TCP Sıra Numarası Çakıştırma (seqovl)](#44-tcp-sıra-numarası-çakıştırma-seqovl)
-  - [4.5. IP ID Atama Şemaları](#45-ip-id-atama-şemaları)
-  - [4.6. Paket Yeniden Birleştirme (Kyber ve Parçalı ClientHello)](#46-paket-yeniden-birleştirme-kyber-ve-parçalı-clienthello)
-  - [4.7. UDP Desync ve QUIC/VoIP Engeli Aşma Yolları](#47-udp-desync-ve-quicvoip-engeli-aşma-yolları)
-  - [4.8. Sunucu Tarafı Cevap Manipülasyonu (wssize)](#48-sunucu-tarafı-cevap-manipülasyonu-wssize)
-  - [4.9. Yinelenen Paket Enjeksiyonu (Duplicates)](#49-yinelenen-paket-enjeksiyonu-duplicates)
-  - [4.10. Orijinal Paket Başlık Değişiklikleri](#410-orijinal-paket-başlık-değişiklikleri)
-  - [4.11. SYNDATA Modu](#411-syndata-modu)
-  - [4.12. IP Önbellek Yönetimi](#412-ip-önbellek-yönetimi)
-  - [4.13. Bağlantı Takibi (Conntrack)](#413-bağlantı-takibi-conntrack)
-- [5. Vane Ekosistemi ve Özellikleri](#5-vane-ekosistemi-ve-özellikleri)
-  - [5.1. DNS Koruması (Yerel DoH/DoT/DoQ Yönlendirici)](#51-dns-koruması-yerel-dohdotdoq-yönlendirici)
-  - [5.2. Güvenlik Denetimleri (Kill Switch ve Watchdog)](#52-güvenlik-denetimleri-kill-switch-ve-watchdog)
-  - [5.3. SOCKS5 Üst Düzey Proxy Yapılandırması](#53-socks5-üst-düzey-proxy-yapılandırması)
-  - [5.4. Canlı Log Konsolu ve Kategorize Edilmiş Etiketler](#54-canlı-log-konsolu-ve-kategorize-edilmiş-etiketler)
-- [6. Parametrelerin Kombinasyonu (Pratik Senaryolar)](#6-parametrelerin-kombinasyonu-pratik-senaryolar)
-- [7. Güvenlik Duvarı ve Linux Entegrasyonu (Iptables/Nftables)](#7-güvenlik-duvarı-ve-linux-entegrasyonu-iptablesnftables)
-- [8. Sınırlar ve Engellemenin Aşılamadığı Durumlar](#8-sınırlar-ve-engellemenin-aşılamadığı-durumlar)
-- [9. Kod Tabanı Mimarisi ve Geliştirici Kılavuzu](#9-kod-tabanı-mimarisi-ve-geliştirici-kılavuzu)
-- [10. Sorun Giderme ve Teşhis](#10-sorun-giderme-ve-teşhis)
-- [11. Emeği Geçenler ve Lisans](#11-emeği-geçenler-ve-lisans)
+- [1. Vane Nedir?](#1-vane-nedir)
+- [2. Zapret Nedir?](#2-zapret-nedir)
+- [3. Derin Paket İnceleme (DPI) Nasıl Çalışır?](#3-derin-paket-inceleme-dpi-nasıl-çalışır)
+  - [3.1. Pasif DPI ve Aktif DPI](#31-pasif-dpi-ve-aktif-dpi)
+  - [3.2. SNI ve Hostname Ayıklama Süreci](#32-sni-ve-hostname-ayıklama-süreci)
+  - [3.3. Blok Enjeksiyonu — RST ve HTTP Yönlendirme](#33-blok-enjeksiyonu--rst-ve-http-yönlendirme)
+  - [3.4. DNS Zehirlenmesi ve Ele Geçirme](#34-dns-zehirlenmesi-ve-ele-geçirme)
+  - [3.5. Derin Parmak İzi ve Davranış Analizi](#35-derin-parmak-i̇zi-ve-davranış-analizi)
+- [4. Zapret Mimarisi — nfqws / winws Çekirdeği](#4-zapret-mimarisi--nfqws--winws-çekirdeği)
+  - [4.1. WinDivert (Windows)](#41-windivert-windows)
+  - [4.2. NFQUEUE (Linux)](#42-nfqueue-linux)
+  - [4.3. Paket İşleme Hattı](#43-paket-i̇şleme-hattı)
+- [5. DPI Desync Stratejileri](#5-dpi-desync-stratejileri)
+  - [5.1. TCP Segmentasyon Yöntemleri](#51-tcp-segmentasyon-yöntemleri)
+  - [5.2. Bölme Konum İşaretçileri](#52-bölme-konum-i̇şaretçileri)
+  - [5.3. Sahte Paket Enjeksiyonu](#53-sahte-paket-enjeksiyonu)
+  - [5.4. Fooling (Yanıltma) Modları](#54-fooling-yanıltma-modları)
+  - [5.5. Sahte Paket İçeriği Özelleştirme](#55-sahte-paket-i̇çeriği-özelleştirme)
+  - [5.6. Sıra Numarası Çakıştırma (seqovl)](#56-sıra-numarası-çakıştırma-seqovl)
+  - [5.7. IP ID Atama Şemaları](#57-ip-id-atama-şemaları)
+  - [5.8. SYNDATA Modu](#58-syndata-modu)
+  - [5.9. Orijinal Paket Değişikliği](#59-orijinal-paket-değişikliği)
+  - [5.10. Yinelenen Paket Enjeksiyonu](#510-yinelenen-paket-enjeksiyonu)
+  - [5.11. Sunucu Tarafı Pencere Manipülasyonu (wssize)](#511-sunucu-tarafı-pencere-manipülasyonu-wssize)
+  - [5.12. UDP / QUIC Desync](#512-udp--quic-desync)
+- [6. Desync Parametre Referans Tablosu](#6-desync-parametre-referans-tablosu)
+- [7. Parçalanmış El Sıkışma ve Kyber Desteği](#7-parçalanmış-el-sıkışma-ve-kyber-desteği)
+- [8. Bağlantı Takibi (Conntrack)](#8-bağlantı-takibi-conntrack)
+- [9. IP Önbelleği Yönetimi](#9-ip-önbelleği-yönetimi)
+- [10. Vane Sistem Özellikleri](#10-vane-sistem-özellikleri)
+  - [10.1. DNS Koruma — Yerel DoH / DoT / DoQ Yönlendiricisi](#101-dns-koruma--yerel-doh--dot--doq-yönlendiricisi)
+  - [10.2. AdBlock DNS Filtresi](#102-adblock-dns-filtresi)
+  - [10.3. Kill Switch — DNS Sızıntı Koruması](#103-kill-switch--dns-sızıntı-koruması)
+  - [10.4. Otomatik Kurtarma Watchdog'u](#104-otomatik-kurtarma-watchdogu)
+  - [10.5. Preset Optimize Edici](#105-preset-optimize-edici)
+  - [10.6. SOCKS5 Üst Düzey Proxy](#106-socks5-üst-düzey-proxy)
+  - [10.7. Uzak Preset Senkronizasyonu](#107-uzak-preset-senkronizasyonu)
+  - [10.8. Etiketli Çıktılı Log Konsolu](#108-etiketli-çıktılı-log-konsolu)
+  - [10.9. Otomatik Başlatma ve Sistem Tepsisi](#109-otomatik-başlatma-ve-sistem-tepsisi)
+  - [10.10. Ağ Değişikliği Algılama](#1010-ağ-değişikliği-algılama)
+- [11. Yerleşik Presetler](#11-yerleşik-presetler)
+- [12. Gelişmiş Yapılandırma — Tam Parametre Tablosu](#12-gelişmiş-yapılandırma--tam-parametre-tablosu)
+- [13. Pratik Engel Aşma Stratejileri](#13-pratik-engel-aşma-stratejileri)
+- [14. Güvenlik Duvarı Kurulumu — Linux (Iptables / Nftables)](#14-güvenlik-duvarı-kurulumu--linux-iptables--nftables)
+- [15. Güvenlik Mimarisi](#15-güvenlik-mimarisi)
+- [16. Kurulum](#16-kurulum)
+- [17. Kaynak Koddan Derleme](#17-kaynak-koddan-derleme)
+- [18. Sorun Giderme](#18-sorun-giderme)
+- [19. Sınırlamalar ve Engel Aşmanın Yetersiz Kaldığı Durumlar](#19-sınırlamalar-ve-engel-aşmanın-yetersiz-kaldığı-durumlar)
+- [20. Emeği Geçenler ve Lisans](#20-emeği-geçenler-ve-lisans)
+- [21. Topluluk](#21-topluluk)
 
 ---
 
-## 1. Genel Bakış ve Proje Hedefleri
+## 1. Vane Nedir?
 
-Vane DPI, derin paket inceleme (DPI) engellerini aşma aracı olan zapret (Windows üzerinde winws, Linux üzerinde nfqws) için geliştirilmiş yüksek performanslı bir grafiksel kontrol paneli ve ağ güvenlik merkezidir. Zapret motoru ağ seviyesinde son derece güçlü olmasına karşın, yapılandırılması süreç yönetimi, karmaşık terminal komutları ve işletim sistemi düzeyindeki güvenlik duvarı politikalarının manuel ayarlanmasını gerektirir.
+Vane, [zapret](https://github.com/bol-van/zapret) DPI engeli aşma motorunun modern bir masaüstü uygulaması kontrolcüsüdür. Windows'ta `winws`, Linux'ta `nfqws` süreçlerini Tauri v2 + Rust + React/TypeScript tabanlı güvenli bir arayüzle yönetir.
 
-Vane, bu süreci tamamen otomatik hale getirerek kullanıcıya görsel bir arayüz sağlar. Gerekli servislerin başlatılması, yerel güvenlik duvarı kurallarının yazılması, şifreli DNS tünellerinin oluşturulması ve ağ durumunun anlık test edilmesi gibi kritik arka plan süreçlerini kendi yönetir. Amacı, ağ yöneticileri, yazılım geliştiricileri ve ileri düzey kullanıcılar için güvenli ve kararlı bir DPI aşma platformu sunmaktır.
+**Vane bir VPN değildir.** Trafiğinizi uzak bir sunucuya yönlendirmez. Bunun yerine, İSS'nin Derin Paket İnceleme sistemlerini yanıltmak amacıyla giden ve gelen ağ paketlerini çekirdek düzeyinde değiştirir. Tüm trafik kendi bağlantınız üzerinde kalır — yalnızca paket yapısı değiştirilir.
 
----
+### Vane'in Otomatikleştirdiği İşlemler
 
-## 2. Derin Paket İnceleme (DPI) Nasıl Çalışır
-
-Etkili bir atlatma stratejisi oluşturmak için internet servis sağlayıcılarının (ISS) kullandığı denetim sistemlerinin çalışma biçiminin bilinmesi gerekir.
-
-### 2.1. Pasif DPI ve Aktif DPI Karşılaştırması
-
-- **Pasif DPI**: Ağın ana hattına yerleştirilen optik bölücüler veya ayna portlar (TAP) aracılığıyla çalışır. Trafiğin bir kopyasını alarak inceler. Doğrudan veri hattında yer almadığı için giden paketleri fiziksel olarak düşüremez (drop edemez). Bunun yerine, yasaklı bir istek algıladığında hem istemciye hem sunucuya sahte TCP RST (Reset) veya HTTP yönlendirme paketleri enjekte eder.
-- **Aktif DPI**: Doğrudan veri hattı üzerine (inline) kurulur. Paketleri gerçek zamanlı olarak geciktirebilir, silebilir (drop), değiştirebilir veya hız sınırlandırması uygulayabilir. Aktif sistemleri atlatmak, paket düşürme yetenekleri nedeniyle daha zordur.
-
-### 2.2. SNI ve Hostname Ayıklama Süreci
-
-DPI cihazları şifreli bağlantıların başlangıç aşamasını (el elkışma - handshake) izler.
-- **HTTP**: İstek paketinin içindeki düz metin olan Host: başlığı incelenir.
-- **HTTPS (TLS)**: Sunucu Adı Belirtimi (SNI) uzantısı incelenir. ClientHello paketi içinde giden alan adı, ISS'nin engelleme listesindeki bir desenle eşleşirse bloklama tetiklenir.
-
-### 2.3. Blok Enjeksiyonu (RST ve Yönlendirmeler)
-
-Yasaklı alan adı tespit edildiğinde:
-- Pasif DPI enjektörü, TCP başlığında RST veya FIN bayrağı ayarlanmış sahte paketleri istemci ve sunucuya gönderir.
-- HTTP bağlantılarında ise tarayıcıya sahte bir HTTP 302 yönlendirmesi göndererek kullanıcının ISS uyarı sayfasına gitmesini sağlar.
-- Sahte paket sunucunun gerçek yanıtından önce ulaşırsa bağlantı sonlandırılır.
-
-### 2.4. DNS Zehirlenmesi (Poisoning)
-
-TCP bağlantısı kurulmadan önce alan adının çözümlenmesi gerekir. ISS'ler standart UDP/TCP port 53 DNS sorgularını izler ve yasaklı siteler için sahte IP adresleri döndürür ya da sorguları tamamen yanıtsız bırakır.
+| İşlem | Vane Olmadan | Vane ile |
+|-------|-------------|----------|
+| Motor başlatma | 20+ argümanla elle CLI | Tek tıklama |
+| DNS şifreleme | Manuel DoH/DoT yapılandırması | Dahili DNS Guard |
+| Güvenlik duvarı kuralları | Elle iptables/WFP kurulumu | Otomatik |
+| DNS sızıntı koruması | Harici araçlar gerekli | Entegre Kill Switch |
+| Preset yönetimi | Metin dosyaları | Görsel düzenleyici + uzak senkronizasyon |
+| İkili dosya bütünlüğü | Doğrulanmıyor | Başlangıçta SHA-256 doğrulaması |
+| Çökmede süreç temizliği | Elle | Windows Job Object / SIGTERM |
 
 ---
 
-## 3. Zapret Mimarisi ve nfqws/winws Çekirdeği
+## 2. Zapret Nedir?
 
-Vane'in alt katmanda yönettiği zapret mimarisi şu sürücüleri kullanır:
-- Windows'ta **WinDivert**: Kullanıcı alanından gelen filtrelerle ağ paketlerini yakalayan, değiştiren ve enjekte eden çekirdek seviyesinde bir sürücüdür.
-- Linux'ta **NFQUEUE**: Paketleri işlenmek üzere kullanıcı alanındaki kuyruklara yönlendiren bir güvenlik duvarı hedefidir.
+[Zapret](https://github.com/bol-van/zapret), bol-van tarafından geliştirilen açık kaynaklı bir DPI engeli aşma kütüphanesi ve daemon sürecidir. Giden (ve bazı durumlarda gelen) TCP/UDP paketlerini yakalayarak yapılandırılabilir manipülasyonlar uygular ve yeniden enjekte eder.
 
-Filtreler doğrultusunda yakalanan paketler parse edilir, ilgili alanları modifiye edilir ve ağ yığınına tekrar gönderilir.
+### Temel Daemon'lar
 
----
+| Daemon | Platform | Mekanizma | Notlar |
+|--------|----------|-----------|--------|
+| `winws` | Windows | WinDivert çekirdek sürücüsü | Yönetici yetkisi gerektirir |
+| `nfqws` | Linux | NFQUEUE netfilter hedefi | iptables/nftables kuralları gerektirir |
+| `tpws` | Linux | SOCKS5 şeffaf proxy | Çekirdek modülü gerekmez |
 
-## 4. Gelişmiş Bypass Tekniklerinin Detaylı Açıklamaları
+### Desteklenen Protokoller
 
-Bu bölüm, Vane'in Gelişmiş (Advanced) sekmesinde yer alan paket manipülasyon parametrelerinin teknik ayrıntılarını açıklamaktadır.
-
-### 4.1. TCP Segmentasyonu ve Paket Sıralaması
-
-DPI sistemleri yüksek hızlı donanımsal yeniden birleştirme tamponlarına (reassembly buffers) sahiptir. TCP akışı birleştirilemezse paket içeriği denetlenemez.
-
-- **multisplit**: TCP verisini split pozisyon listesinde belirlenen çoklu sınırlardan böler.
-- **multidisorder**: Bölünen paket segmentlerini ters sırada gönderir (örneğin segment 2, segment 1'den önce gönderilir). Hedef sunucunun işletim sistemi bu paketleri tampona alır, segment 1 geldiğinde doğru sırada birleştirerek uygulamaya iletir. Ancak DPI cihazının bu sırasız paketleri izlemek için oturum tablosu tutması gerekir; bu da yüksek kaynak tükettiğinden genellikle bypass ile sonuçlanır.
-- **fakedsplit**: Tek pozisyonlu bölme işlemi uygulayarak orijinal segmentlerin arasına sahte veri paketleri serpiştirir. Segmentler ardışık sırada gönderilir.
-- **fakeddisorder**: fakedsplit mantığıyla çalışır ancak orijinal paket segmentlerini sunucuya ters sırada gönderir.
-- **hostfakesplit**: İstek paketini Host başlığının etrafından bölerek gerçek alan adından önce ve sonra sahte alan adları enjekte eder.
-
-#### İşaretçiler (Markers) ve Bölme Noktaları
-Bölme noktaları şu işaretçiler yardımıyla dinamik olarak çözümlenir:
-- **method**: HTTP istek metodunun (GET, POST vb.) başladığı nokta.
-- **host**: HTTP veya TLS SNI başlığındaki alan adının başladığı nokta.
-- **endhost**: Alan adının bittiği ilk bayt.
-- **sld**: İkinci seviye alan adının (second-level domain) başladığı nokta.
-- **endsld**: İkinci seviye alan adının bittiği ilk bayt.
-- **midsld**: İkinci seviye alan adının tam ortası.
-- **sniext**: TLS SNI uzantısının veri alanının başlangıcı.
-
-Örnek yapılandırma:
-`--dpi-desync-split-pos=method+2,midsld` ifadesi HTTP için method+2 konumunu, TLS için ise midsld konumunu bölme noktası olarak alır.
-
-#### Segment Sıralaması ve Altorder Modifikasyonları
-`--dpi-desync-fakedsplit-mod=altorder=N` parametresi ile paket segmentlerinin gönderim sırası özelleştirilebilir:
-- **altorder=0**: Sahte 1. segment, gerçek 1. segment, sahte 1. segment, sahte 2. segment, gerçek 2. segment, sahte 2. segment.
-- **altorder=1**: Gerçek 1. segment, sahte 1. segment, sahte 2. segment, gerçek 2. segment, sahte 2. segment.
-- **altorder=2**: Gerçek 1. segment, sahte 2. segment, gerçek 2. segment, sahte 2. segment.
-- **altorder=3**: Gerçek 1. segment, sahte 2. segment, gerçek 2. segment.
-- **altorder=8**: Gerçek paket, sahte paket.
-- **altorder=16**: Sadece gerçek paket (sahteler enjekte edilmez).
-
-### 4.2. Sahte Paket Enjeksiyonu ve Fooling (Yanıltma) Yöntemleri
-
-Sahte paket enjeksiyonu, orijinal veriden önce yasaklı alan adını içeren sahte bir istek paketi göndererek DPI sensörünü doyurmayı hedefler. DPI bu sahte paketi engellediğini varsayarak oturumu izlemeyi bırakır. Hemen ardından gerçek paket gönderilir. Gerçek sunucunun bu sahte paketi alıp bağlantıyı koparmaması için şu yanıltma (fooling) yöntemleri kullanılır:
-
-- **ttl**: Sahte paketlerin Yaşam Süresi (TTL) değerini düşürür. Paket, ISS'nin DPI sensöründen geçtikten sonra hedef sunucuya ulaşamadan ağda yok olur. Düğüm mesafesinin doğru ayarlanması gerekir. Bazı orijinal modem yazılımları giden paketlerin TTL değerini sabitleyebilir; bu durumda TTL yanıltması çalışmayacaktır.
-- **badsum**: Geçersiz bir TCP sağlama toplamına (checksum) sahip paket üretir. Sunucu paketi reddeder ancak birçok DPI cihazı checksum doğrulaması yapmaz. Ev routerlarında bu paketlerin düşürülmemesi için router üzerinde `net.netfilter.nf_conntrack_checksum=0` ayarı yapılmalıdır. Aksi halde Linux tabanlı routerlar geçersiz checksum paketlerini FORWARD zincirinde düşürür.
-- **badseq**: TCP penceresi dışında kalan geçersiz sıra numaraları kullanır. Varsayılan artış değeri -10000'dir. DPI cihazı eğer pencere boyutunu takip ediyorsa bu paketi yok sayabilir. Kesin bir çözüm için artış değerini 0x80000000 yaparak paketi tamamen pencere dışına itmek mümkündür.
-- **md5sig**: Paket başlığına MD5 imza seçeneği ekler. Linux dışındaki sunucular bu paketi kabul etmez. Bu seçenek TCP başlığında ek alan kapladığı için Kyber tabanlı parçalı ClientHello isteklerinde MTU aşımına yol açabilir.
-- **datanoack**: Sahte paketleri ACK bayrağı olmadan gönderir. Sunucular ACK bayrağı olmayan paketleri reddederken DPI cihazları genellikle işler. Bazı routerlarda NAT veya masquerade kurallarıyla çakışabilir.
-- **ts**: TCP zaman damgasını (TSval) değiştirerek sunucunun PAWS mekanizması tarafından paketi reddetmesini sağlar. İstemci işletim sisteminde zaman damgalarının açık olmasını gerektirir. Windows için şu komutla etkinleştirilir:
-  `netsh interface tcp set global timestamps=enabled`
-- **autottl**: Sunucudan gelen paketlerin TTL değerini ölçerek aradaki düğüm mesafesini hesaplar ve sahte paketin TTL'ini sunucuya ulaşmayacak şekilde dinamik olarak ayarlar. İşletim sistemlerinin standart varsayılan TTL değerlerini (64, 128, 255) baz alır.
-
-### 4.3. TLS ClientHello Sahte Paket Özelleştirmeleri
-
-Vane, enjekte edilen sahte paketlerin TLS parmak izi denetimlerine takılmaması için şu özelleştirmeleri destekler:
-- **rnd**: Her istekte TLS yapısı içindeki Random ve Session ID alanlarını rastgele hale getirir.
-- **rndsni**: Rastgele belirlenen bir alt alan adı ve popüler bir alan adı uzantısı kullanarak SNI kısmını rastgele doldurur.
-- **dupsid**: Orijinal ClientHello paketindeki Session ID bilgisini kopyalayarak sahte paketin aynı oturumun bir parçası gibi görünmesini sağlar.
-- **sni=domain**: SNI uzantısını belirlenen izinli bir alan adına (örneğin iana.org) dönüştürür ve paket boyutu uzunluklarını otomatik düzeltir.
-- **padencap**: Sahte TLS verisi içerisindeki padding uzantısını orijinal paket boyutu kadar genişleterek paket boyutu imzalarını yanıltır.
-
-### 4.4. TCP Sıra Numarası Çakıştırma (seqovl)
-
-`seqovl` yöntemi, sahte segmentin sıra numaralarını orijinal segmentin sıra numaralarıyla çakıştırarak gönderir.
-- Sunucu akışı birleştirirken gerçek veriyi öncelikli kabul eder ve sahte verinin üzerine yazar.
-- DPI cihazı ise gelen ilk veriyi nihai kabul ettiği için sahte veriyi okur. Böylece DPI'ın denetlediği veri ile sunucunun işlediği veri birbirinden farklı olur. Windows sunucuları sıra numarası çakışmalarını Linux tabanlı sunucular gibi işlemediğinden seqovl yöntemi Windows barındırıcılarda başarısız olabilir.
-
-### 4.5. IP ID Atama Şemaları
-
-IP paket başlıklarının tutarlılığını denetleyen sistemleri aşmak için şu şemalar yapılandırılabilir:
-- **seq**: Her enjekte edilen paket için IP ID değerini düzenli artırır.
-- **seqgroup**: Sahte segmentin IP ID'sini orijinal segmentle eşleştirir.
-- **rnd**: Tamamen rastgele IP ID'leri atar.
-- **zero**: IP ID değerini sıfıra zorlar (Linux/BSD).
-
-### 4.6. Paket Yeniden Birleştirme (Kyber ve Parçalı ClientHello)
-
-Yeni nesil tarayıcılar, TLS el sıkışma boyutunu artıran post-quantum kriptografi (ML-KEM/Kyber) algoritmaları kullanır. Bu durum SNI bilgisinin birden fazla pakete bölünmesine neden olur.
-- Vane'in arka plan servisi, parçalı gelen el sıkışma isteklerini yakalar.
-- Tüm parçalar gelene kadar paketleri bekletir ve ardından desync stratejisini birleştirilmiş veri bloğuna tek seferde uygular.
-
-### 4.7. UDP Desync ve QUIC/VoIP Engeli Aşma Yolları
-
-QUIC (HTTP/3) protokolü UDP port 443 üzerinden çalışır. UDP'de akış segmentasyonu yapılamadığı için:
-- Aşma işlemi sahte UDP paket enjeksiyonu (`fake`), uzunluk değiştirme (`udplen`) veya IPv6'ya özel ek başlıklarla gerçekleştirilir.
-- `udplen` parametresi, UDP paketlerinin boyutunu değiştirerek imza tabanlı engellemeleri engeller.
-- VoIP ve Discord ses protokolleri yüksek UDP port aralıklarını (50000-65535) kullanır. Vane, bu port aralıklarında sahte paket enjeksiyonu uygulayarak bağlantıyı kararlı hale getiren hazır kurallar barındırır.
-
-### 4.8. Sunucu Tarafı Cevap Manipülasyonu (wssize)
-
-DPI sunucudan gelen sertifika bilgisini okuyarak engelleme yapıyorsa, el sıkışma sırasında sunucuya bildirilen TCP Pencere Boyutu (`--wssize`) sınırlandırılır. Bu durum sunucunun cevabını çok küçük paketlere bölmesini zorunlu kılar ve DPI'ın tek seferde sertifikayı okumasını engeller.
-- wssize pencere ölçek çarpanını belirler (örneğin `1:6`).
-- El sıkışma sırasında hızı düşürse de sunucu tarafındaki SNI tarayıcılarını atlatır.
-- İlk istek başarıyla iletildikten sonra Vane'in bağlantı takipçisi (conntrack) pencere boyutunu normale çekerek veri indirme hızını geri kazandırır.
-
-### 4.9. Yinelenen Paket Enjeksiyonu (Duplicates)
-
-`--dup=N` parametresi, orijinal paketlerin belirlenen sayıda kopyasını enjekte eder.
-- Kopyalanan paketler özel TTL (`--dup-ttl`) veya autottl politikalarıyla gönderilebilir.
-- Paket anomalileri eklenerek (örneğin geçersiz TCP bayrakları veya MD5 imzaları), DPI cihazının oturum takip bütünlüğü bozulur.
-
-### 4.10. Orijinal Paket Başlık Değişiklikleri
-
-Vane, orijinal giden paketlerin başlık alanlarını da modifiye edebilir. `--orig-ttl` veya `--orig-autottl` kullanılarak istemcinin gerçek işletim sistemi imzaları maskelenir ve DPI'ın TTL tabanlı analiz hesaplamaları yanıltılır.
-
-### 4.11. SYNDATA Modu
-
-Standart koşullarda TCP SYN paketlerinde veri bulunmaz. SYNDATA modu, SYN paketinin içerisine veri bloğu (genellikle 16 adet sıfır baytı) yerleştirir. Sunucu bunu yok sayarken, DPI cihazının durum takip mekanizması el sıkışmanın fazını yanlış analiz eder.
-
-### 4.12. IP Önbellek Yönetimi
-
-Sunucuya giden ilk paketten itibaren otomatik TTL hesaplamalarını uygulayabilmek için Vane, arka planda dinamik bir IP önbelleği (IP cache) tutar.
-- Önbellek, sunucu IP adreslerini ve ağ arayüzlerini hop mesafeleriyle eşleştirir.
-- Aynı sunucuya yapılan sonraki isteklerde autottl anında devreye girer.
-- Önbellek süresi varsayılan olarak 2 saattir ve `--ipcache-lifetime` ile değiştirilebilir.
-
-### 4.13. Bağlantı Takibi (Conntrack)
-
-Vane, çoklu paket birleştirmelerini ve pencere boyutu kesintilerini yönetmek için hafif bir bağlantı takip sistemi barındırır.
-- Bağlantı fazlarını (SYN, ESTABLISHED, FIN) ve UDP akışlarını takip eder.
-- Zaman aşımına uğrayan pasif bağlantıları bellekten temizler.
-- Sorun teşhisi için daemona `SIGUSR1` sinyali gönderilerek aktif conntrack tablosu standart çıktıya yazdırılabilir.
+| Protokol | Port | Taşıma | Aşma Yöntemleri |
+|----------|------|--------|-----------------|
+| HTTP | 80 | TCP | Bölme, bozuk düzen, sahte |
+| HTTPS (TLS 1.2/1.3) | 443 | TCP | Bölme, sahte, seqovl, wssize |
+| QUIC (HTTP/3) | 443 | UDP | Sahte, udplen, fakeknown |
+| VoIP / Discord RTP | 50000-65535 | UDP | Sahte, udplen |
+| DoH (HTTPS üzerinden DNS) | 443 | TCP | DNS Guard tarafından yönetilir |
 
 ---
 
-## 5. Vane Ekosistemi ve Özellikleri
+## 3. Derin Paket İnceleme (DPI) Nasıl Çalışır?
 
-Vane arayüzü, motoru yönetmenin yanında ek ağ servisleri barındırır.
+Etkili engel aşma stratejileri geliştirmek için İSS'lerin kullandığı denetim sistemlerinin mimarisini anlamak kritik önem taşır.
 
-### 5.1. DNS Koruması (Yerel DoH/DoT/DoQ Yönlendirici)
-DNS Koruması `127.0.0.127:5353` adresinde yerel bir çözümleyici çalıştırır.
-- UDP port 53 üzerinden gelen standart DNS sorgularını şifreli DoH, DoT veya DoQ isteklerine dönüştürür.
-- Çözümlenen adresleri bellekte önbelleğe alarak sonraki erişimleri hızlandırır.
-- StevenBlack hosts listesini kullanarak reklam, takipçi ve zararlı yazılım içeren alan adlarını DNS seviyesinde engeller.
+### 3.1. Pasif DPI ve Aktif DPI
 
-### 5.2. Güvenlik Denetimleri (Kill Switch ve Watchdog)
-- **Kill Switch**: Güvenlik duvarı kuralları yazarak dışarı giden standart DNS (port 53) trafiğini engeller ve DNS sızıntılarını önler. Vane kapatıldığında kurallar otomatik silinir.
-- **Watchdog**: Belirlenen test adreslerine (örneğin `discord.com`) düzenli sorgular atar. Bağlantı kesilirse tüneli otomatik olarak yeniden başlatır veya optimizasyon taraması yapar.
+| Özellik | Pasif DPI | Aktif DPI |
+|---------|-----------|-----------|
+| Yerleşim | Ayna portu / optik tap | Veri yolunun içinde (inline) |
+| Paket düşürebilir mi | ❌ Hayır | ✅ Evet |
+| Paket geciktirebilir mi | ❌ Hayır | ✅ Evet |
+| Bloklama yöntemi | RST enjeksiyonu / HTTP yönlendirme | Düşürme, TCP sıfırlama, proxy kesişmesi |
+| Aşma zorluğu | Düşük — Orta | Yüksek |
 
-### 5.3. SOCKS5 Üst Düzey Proxy Yapılandırması
-DNS Guard'ın şifreli DNS sorgularını bir SOCKS5 proxy (örneğin Tor) üzerinden geçirerek sorgu kaynağını gizler.
+**Pasif DPI**, trafiğin bir kopyasını alır. Gerçek sunucu yanıtından önce müşteriye sahte bir TCP RST veya HTTP 302 enjekte etmeye çalışır. Sahte paket önce ulaşırsa bağlantı kopar.
 
-### 5.4. Canlı Log Konsolu ve Kategorize Edilmiş Etiketler
-Konsola düşen loglar kategorilerine göre renkli etiketlerle ayrıştırılır:
-- `[MOTOR]`: Zapret motorunun çalışma ve süreç logları (mor).
-- `[DNS]`: DNS Guard sorguları ve protokol değişiklikleri (yeşil).
-- `[ADBLOCK]`: Reklam engelleme filtreleme olayları (kırmızı).
-- `[GÜVENLİK]`: Yönetici yetki durumları ve sürücü kilitleri (sarı).
-- `[SİSTEM]`: Başlangıç görevleri ve ağ değişiklikleri (mavi).
-- `[HATA]`: Süreç çalışma hataları (kırmızı).
-- `[UYARI]`: Kritik olmayan uyarılar ve kurtarma denemeleri (amber).
+**Aktif DPI** doğrudan veri yolunun üzerinde konumlanır. TCP akışlarını yeniden oluşturabilir, yeniden birleştirilmiş yükler üzerinde regex eşleştirmesi uygulayabilir ve bağlantıları tamamlanmadan engelleyebilir.
+
+### 3.2. SNI ve Hostname Ayıklama Süreci
+
+```
+İstemci → [TCP SYN] → [TCP SYN-ACK] → [TLS ClientHello]
+                                              ↑
+                              DPI burada SNI uzantısını okur
+                              "server_name: engellendi.example.com"
+```
+
+| Bağlantı Tipi | İncelenen Başlık | Paketteki Konumu |
+|--------------|------------------|------------------|
+| HTTP/1.1 | `Host:` başlığı | Düz metin, TCP yükü |
+| HTTPS (TLS) | `server_name` SNI uzantısı | ClientHello, şifreleme öncesi düz metin |
+| HTTP/2 TLS üzerinde | ClientHello'daki SNI | HTTPS ile aynı |
+| QUIC (HTTP/3) | QUIC CRYPTO SNI | İlk QUIC CRYPTO çerçevesi |
+
+### 3.3. Blok Enjeksiyonu — RST ve HTTP Yönlendirme
+
+DPI sensörü yasaklı bir alan adı tespit ettiğinde:
+
+1. Sunucunun kaynak IP ve portunuyla **sahte TCP RST** paketi üretir (pasif DPI).
+2. HTTP bağlantıları için İSS uyarı sayfasını gösteren **sahte HTTP 302 yönlendirme** paketi enjekte edebilir.
+3. Yarış koşulu: enjekte edilen RST/yönlendirme gerçek sunucu yanıtından **önce** istemciye ulaşırsa işletim sistemi soketi kapatır.
+4. Aktif DPI'lar gerçek paketi tamamen düşürür ve kendi RST'lerini gönderir — yarış koşuluna gerek yoktur.
+
+### 3.4. DNS Zehirlenmesi ve Ele Geçirme
+
+TCP bağlantısı kurulmadan önce alan adının çözümlenmesi gerekir. İSS'ler DNS'i iki yaygın yolla ele geçirir:
+
+| Yöntem | Mekanizma | Sonuç |
+|--------|-----------|-------|
+| DNS Ele Geçirme | UDP/53'ü keser, sahte IP döndürür | İstemci engel portalına bağlanır |
+| DNS Zehirlenmesi | Yarış koşulunda yanlış DNS yanıtı enjekte eder | Ele geçirmeyle aynı |
+| DNS Engelleme | DNS isteğini tamamen düşürür | Bağlantı zaman aşımına uğrar |
+| Şeffaf DNS Proxy | Tüm DNS'i İSS çözümleyicisinden geçirir | İSS sansürlü yanıtlar döndürür |
+
+**Vane'in DNS Guard'ı**, tüm DNS sorgularını şifreli DoH/DoT/DoQ tünelleri üzerinden yönlendirerek bunların tamamını çözer.
+
+### 3.5. Derin Parmak İzi ve Davranış Analizi
+
+Gelişmiş DPI sistemleri SNI okumayı davranışsal parmak iziyle destekler:
+
+| Teknik | Açıklama | Karşı Tedbir |
+|--------|----------|--------------|
+| JA3/JA3S parmak izi | TLS ClientHello parametrelerinin hash'i | TLS uzantı sıralamasını değiştirme |
+| TCP parmak izi | TCP seçenek sıralamasıyla OS tespiti | `--dpi-desync-ttl` + bölme |
+| Akış uzunluk analizi | Paket boyutuyla VPN/proxy tespiti | `--udplen`, yük doldurma |
+| Zamanlama korelasyonu | Şifreli akışları bilinen kalıplarla eşleştirme | Bozuk düzen moduyla kaos enjeksiyonu |
 
 ---
 
-## 6. Parametrelerin Kombinasyonu (Pratik Senaryolar)
+## 4. Zapret Mimarisi — nfqws / winws Çekirdeği
 
-Farklı engelleme türlerine karşı parametrelerin birlikte kullanımı aşağıda örneklendirilmiştir.
+### 4.1. WinDivert (Windows)
 
-### Senaryo 1: Standart Split Aşma (Güvenli, Yüksek Uyumluluk)
-Temel engellemelere karşı sahte paket üretmeden çalışan uyumlu bir yöntemdir.
+Windows'ta `winws`, [WinDivert](https://reqrypt.org/windivert.html) çekirdek sürücüsünü kullanır:
+
+```
+Uygulama → TCP Yığını → WinDivert (çekirdek sürücüsü paketi yakalar)
+                                   ↓
+                         winws.exe (kullanıcı alanı işleme)
+                                   ↓
+                         WinDivert yeniden enjekte → Router → İnternet
+```
+
+WinDivert, hangi paketlerin ele geçirileceğini belirten bir filtre ifadesiyle Windows çekirdek sürücüsü (`WinDivert64.sys`) olarak kurulur.
+
+### 4.2. NFQUEUE (Linux)
+
+Linux'ta `nfqws`, çekirdeğin NFQUEUE netfilter hedefini kullanır:
+
+```
+Uygulama → TCP Yığını → iptables NFQUEUE kuralı → NFQUEUE (çekirdek)
+                                                         ↓
+                                             nfqws (kullanıcı alanı işleme)
+                                                         ↓
+                                         NF_ACCEPT / NF_DROP → Router → İnternet
+```
+
+### 4.3. Paket İşleme Hattı
+
+```
+Gelen Paket
+      │
+      ├─ TCP mi? ──→ TCP bayraklarını, sıra numaralarını ayrıştır
+      │                       │
+      │                       ├─ SYN mi? ──→ SYNDATA modu
+      │                       │
+      │                       └─ Uygulama verisi mi? ──→ Protokol ayrıştır
+      │                               │
+      │                               ├─ HTTP → Host: başlığını bul
+      │                               ├─ TLS  → ClientHello + SNI bul
+      │                               └─ QUIC → CRYPTO SNI bul
+      │
+      ├─ UDP mi? ──→ QUIC / VoIP işleyicisi
+      │
+      └─ Desync stratejisi uygula → Değiştirilmiş paketleri yeniden enjekte et
+```
+
+---
+
+## 5. DPI Desync Stratejileri
+
+### 5.1. TCP Segmentasyon Yöntemleri
+
+TCP desync, DPI donanımının kaynak kısıtlamalarını kullanır. Bir TCP akışı olağandışı parçalara bölündüğünde veya yeniden sıralandığında, DPI'nın yeniden birleştirme arabelleği bağlantı kurulmadan önce SNI'yi işleyemeyebilir.
+
+| Yöntem | Açıklama | Karmaşıklık | Uyumluluk |
+|--------|----------|-------------|-----------|
+| `split` | TCP yükünü tek konumda böler | Düşük | Çok Yüksek |
+| `split2` | İki konumda böler | Düşük | Yüksek |
+| `disorder` | Böler ve segmentleri ters sırayla gönderir | Orta | Yüksek |
+| `disorder2` | İki konumda bozuk düzen | Orta | Orta-Yüksek |
+| `fakedsplit` | Bölme + etrafında sahte paketler | Yüksek | Yüksek |
+| `fakeddisorder` | Bozuk düzen + sahte paketler | Yüksek | Orta-Yüksek |
+| `multisplit` | Listede belirtilen N konumda bölme | Orta | Yüksek |
+| `multidisorder` | Çok konumlu bozuk düzen | Yüksek | Yüksek |
+| `hostfakesplit` | Özellikle hostname alanı etrafında bölme | Yüksek | Orta |
+
+**Bozuk düzen (disorder) nasıl çalışır:**
+
+```
+Orijinal:    [Seg1: 1-10. baytlar][Seg2: 11-20. baytlar][Seg3: 21-30. baytlar]
+             İçeriği: "example.com" (engellenen SNI)
+
+Bozuk düzen: [Seg2][Seg3][Seg1]
+Sunucu:      Seg2, Seg3'ü arabellekte tutar, Seg1'i alınca doğru sırayla birleştirir
+DPI:         Yeniden birleştiremez → SNI'yi göz ardı eder
+```
+
+### 5.2. Bölme Konum İşaretçileri
+
+| İşaretçi | Çözümlediği Konum | Geçerli Protokol |
+|----------|-------------------|------------------|
+| `method` | HTTP metodunun başlangıcı (GET, POST…) | HTTP |
+| `host` | Hostname alanının başlangıcı | HTTP, TLS |
+| `endhost` | Hostname'in son karakterinden sonraki bayt | HTTP, TLS |
+| `sld` | İkinci düzey etki alanının başlangıcı | HTTP, TLS |
+| `endsld` | SLD'nin sonundan sonraki bayt | HTTP, TLS |
+| `midsld` | İkinci düzey etki alanının ortası | HTTP, TLS |
+| `sniext` | TLS SNI uzantı veri alanı | Yalnızca TLS |
+| `0`, `1`, `N` | Yük başlangıcından mutlak bayt ofseti | Herhangi |
+| `method+N` | Metod işaretçisi + N ofseti | HTTP |
+| `host-N` | Host işaretçisi − N ofseti | HTTP, TLS |
+
+**Örnek:**
+```
+--dpi-desync-split-pos=method+2,midsld
+```
+HTTP istekleri için `method+2`, TLS bağlantıları için `midsld` konumunda böler.
+
+### 5.3. Sahte Paket Enjeksiyonu
+
+Sahte paket enjeksiyonu, DPI'nın bloklama mantığını tetiklemek için tasarlanmış bir yem paketi gönderir. DPI sahte yükü işledikten sonra oturumun zaten ele alındığını varsayar ve takibi durdurur. Gerçek paket daha sonra gönderilir.
+
+```
+Zaman çizelgesi:
+  T=0ms  → İstemci sahte paket gönderir (yasaklı SNI içerir)
+             DPI: "Bu blocked.example.com, bloklama kuralını etkinleştir"
+  T=1ms  → İstemci gerçek parçalanmış paketleri gönderir (tam SNI görünmez)
+             DPI: "Bu oturumu zaten işledim, yoksayıyorum"
+  T=2ms  → Sunucu gerçek paketleri birleştirir, bağlantı başarılı
+```
+
+**Kritik gereksinim**: Sahte paketin gerçek sunucuya ulaşmaması gerekir (aksi halde sunucu bağlantıyı keser). Bu **fooling modları** ile sağlanır.
+
+### 5.4. Fooling (Yanıltma) Modları
+
+| Mod | Mekanizma | Güvenilirlik | Notlar |
+|-----|-----------|--------------|--------|
+| `ttl` | TTL'yi hedefe ulaşmadan dolacak kadar düşük ayarla | Yüksek | Atlatma sayısı gerektirir; TTL yeniden yazan routerlarla çalışmaz |
+| `autottl` | Sunucunun gelen TTL'ini ölçer, atlama mesafesini otomatik hesaplar | Çok Yüksek | En iyi varsayılan seçim |
+| `badsum` | Yanlış TCP sağlama toplamıyla sahte paket | Yüksek | Bazı NAT routerları da düşürebilir; Linux NAT'ta `nf_conntrack_checksum=0` gerekebilir |
+| `badseq` | Sunucunun penceresinin dışında sıra numarası | Yüksek | Varsayılan ofset: -10000; maksimum etkililik için 0x80000000 kullanın |
+| `md5sig` | TCP başlığına RFC 2385 MD5 seçeneği ekle | Yüksek | Linux dışı sunucular MD5'i reddeder; MTU sorunlarına yol açabilir |
+| `datanoack` | ACK bayrağı olmadan sahte paket gönder | Orta | NAT ile çakışabilir |
+| `ts` | PAWS reddini tetikleyen sahte TCP zaman damgası | Orta | İstemcide `net.ipv4.tcp_timestamps=1` gerektirir |
+
+### 5.5. Sahte Paket İçeriği Özelleştirme
+
+| Seçenek | Etkisi |
+|---------|--------|
+| `rnd` | Her istekte TLS Rastgele ve Oturum ID alanlarını rastgele oluşturur |
+| `rndsni` | SNI uzantısını rastgele SLD + TLD ile değiştirir |
+| `dupsid` | Gerçek ClientHello'nun Oturum ID'sini sahte pakete kopyalar |
+| `sni=domain` | Sahte paketteki SNI'yi `domain` ile değiştirir |
+| `padencap` | Sahte doldurma uzantısını gerçek paketin boyutuna göre genişletir |
+| `oob` | Sahte pakette bant dışı veri (TCP Urgent bayrağı) gönderir |
+
+### 5.6. Sıra Numarası Çakıştırma (seqovl)
+
+`seqovl` tekniği, durumsal DPI motorlarını yanıltmak için kasıtlı olarak örtüşen TCP sıra aralıkları oluşturur.
+
+```
+Sahte segment:  [seq=100, len=10] → yük: çöp_veri
+Gerçek segment: [seq=105, len=10] → yük: gerçek_sni_verisi
+
+DPI görür: çöp_veri (ilk alınan, standart olarak kaydedilir)
+Sunucu:    OS uygulamasına bağlı olarak ikinci alınan veya sonraki verilere öncelik verebilir
+```
+
+> ⚠️ Windows tabanlı sunucular çakışmaları Linux/BSD sunucuları gibi işlemez. `seqovl` güvenilirliği Windows kaynaklı sitelerde değişkenlik gösterir.
+
+### 5.7. IP ID Atama Şemaları
+
+| Mod | Açıklama | Kullanım Alanı |
+|-----|----------|----------------|
+| `seq` | Her enjekte edilen paket için IP ID'yi artır | Varsayılan |
+| `seqgroup` | Sahte segmentin IP ID'sini orijinal segmentiyle eşleştir | Durumsal DPI aşma |
+| `rnd` | Her pakete rastgele IP ID | Parmak izi önleme |
+| `zero` | IP ID'yi 0'a zorla | Yalnızca Linux/BSD sunucular |
+
+### 5.8. SYNDATA Modu
+
+Normalde TCP SYN paketleri yük taşımaz. SYNDATA, SYN paketinin içine veri yükü ekler.
+
+```
+Standart SYN:  [SYN bayrağı][veri yok]
+SYNDATA SYN:   [SYN bayrağı][16 null bayt veya özel yük]
+```
+
+- Hedef OS, SYN yükünü **TCP Fast Open (TFO)** etkin olmadıkça yoksayar.
+- DPI ise SYN yükünü ayrıştırmaya çalışarak oturum durum makinesi gerçek el sıkışmayla senkronunu kaybeder.
+
+### 5.9. Orijinal Paket Değişikliği
+
+**Gerçek** veri paketlerinin TTL ve IP ID alanlarını değiştirebilirsiniz (yalnızca sahteler için değil):
+
+| Parametre | İşlevi |
+|-----------|--------|
+| `--orig-ttl=N` | Gerçek paket TTL'ini N'e ayarla |
+| `--orig-autottl` | Gerçek paket için TTL'yi otomatik hesapla |
+
+Bu, DPI'ı gerçek ve sahte akışları karşılaştırırken hatalı atlama mesafeleri hesaplamaya zorlar.
+
+### 5.10. Yinelenen Paket Enjeksiyonu
+
+`--dup=N`, gerçek paketten önce N adet yinelenen kopya gönderir.
+
+| Parametre | Etkisi |
+|-----------|--------|
+| `--dup=1` | Gerçek paketten önce 1 yinelenen gönder |
+| `--dup-ttl=N` | Yinelemelere N TTL uygula |
+| `--dup-autottl` | Yinelemeler için TTL'yi otomatik hesapla |
+| `--dup-badseq` | Yinelemelere kötü sıra numarası uygula |
+
+**Amaç**: DPI'ı aynı paketin çelişkili kopyalarını işlemeye zorlayarak oturum takibini bırakmasına neden olur.
+
+### 5.11. Sunucu Tarafı Pencere Manipülasyonu (wssize)
+
+Normalde sunucu büyük bir TCP yanıtı gönderir. `wssize`, el sıkışma sırasında sunucuya bildirilen TCP penceresini yapay olarak kısıtlar:
+
+```
+İstemci → [SYN, Pencere=65535] → Sunucu
+İstemci ← [SYN-ACK] ← Sunucu
+İstemci → [ACK, Pencere=1] → Sunucu (wssize etkin)
+Sunucu: "Pencere çok küçük, seferinde 1 bayt göndereceğim"
+DPI: "Tam ServerHello'yu okuyamıyorum — denetimi bırakıyorum"
+```
+
+> Not: İlk el sıkışma tamamlandıktan sonra Vane'in conntrack modülü pencere kısıtlamasını kaldırarak tam indirme hızını geri yükler.
+
+### 5.12. UDP / QUIC Desync
+
+QUIC (HTTP/3), UDP kullanır ve bağlantının SNI'sini ilk QUIC CRYPTO çerçevesinde taşır.
+
+| Yöntem | Açıklama |
+|--------|----------|
+| `fake` | Gerçek paketten önce sahte QUIC paketi enjekte et |
+| `fakeknown` | Hazırlanmış CRYPTO çerçevesiyle sahte QUIC Initial paketi |
+| `udplen=N` | UDP yük uzunluğunu N bayt artır |
+| IPv6 uzantıları | QUIC paketlerine IPv6 Atlama-Atlama uzantı başlıkları ekle |
+
+---
+
+## 6. Desync Parametre Referans Tablosu
+
+Vane'in Gelişmiş sekmesinde sunulan tüm zapret parametrelerinin tam referansı:
+
+| Parametre | Değerler | Varsayılan | Açıklama |
+|-----------|---------|----------|----------|
+| `--dpi-desync` | `split`,`disorder`,`fake`,`multisplit`,`multidisorder`... | — | Birincil desync yöntemi(leri) |
+| `--dpi-desync2` | Yukarıdakiyle aynı | — | Kurulu bağlantılar için ikincil yöntem |
+| `--dpi-desync-split-pos` | İşaretçi veya tamsayı listesi | `2` | Bölme konumu(ları) |
+| `--dpi-desync-split-http-req` | `none`,`method`,`host` | `none` | HTTP isteği özel bölme noktası |
+| `--dpi-desync-split-pos-http-req` | Tamsayı | — | HTTP bölmesi için bayt ofseti |
+| `--dpi-desync-split-tls` | `none`,`sni`,`snh` | `none` | TLS özel bölme noktası |
+| `--dpi-desync-split-pos-tls` | Tamsayı | — | TLS bölmesi için bayt ofseti |
+| `--dpi-desync-fooling` | `badsum`,`badseq`,`md5sig`,`ts`,`datanoack`,`hopbyhop`,`destopt` | — | Sahte paket yanıltma modu(ları) |
+| `--dpi-desync-autottl` | `[-]N:N-N` | — | TTL sınırlarını otomatik hesapla |
+| `--dpi-desync-ttl` | Tamsayı | — | Sahte paketler için sabit TTL |
+| `--dpi-desync-ttl-ext` | Tamsayı | — | Ek TTL ofseti |
+| `--dpi-desync-repeats` | Tamsayı | `1` | Gerçek paket başına sahte paket sayısı |
+| `--dpi-desync-any-protocol` | Bayrak | Kapalı | Tüm TCP bağlantılarına desync uygula |
+| `--dpi-desync-cutoff` | `d1`-`d9`, `s1`-`sN` | — | Yalnızca ilk N veri/SYN paketine desync uygula |
+| `--dpi-desync-fake-tls-sni` | alan adı | — | Sahte TLS ClientHello için özel SNI |
+| `--dpi-desync-fake-http` | metin veya dosya yolu | — | HTTP sahteleri için özel yük |
+| `--dpi-desync-fake-tls` | metin veya dosya yolu | — | TLS sahteleri için özel yük |
+| `--dpi-desync-fake-quic` | metin veya dosya yolu | — | QUIC sahteleri için özel yük |
+| `--dpi-desync-http` | Yukarıdakiyle aynı | — | HTTP bağlantıları için yöntem geçersiz kılma |
+| `--dpi-desync-https` | Yukarıdakiyle aynı | — | HTTPS/TLS bağlantıları için yöntem geçersiz kılma |
+| `--dpi-desync-quic` | Yukarıdakiyle aynı | — | QUIC/UDP bağlantıları için yöntem geçersiz kılma |
+| `--mss` | Tamsayı | — | TCP Maksimum Segment Boyutu geçersiz kılma |
+| `--tcp-window-size` | Tamsayı | — | Gönderilen paketlerde TCP pencere boyutu |
+| `--wssize` | `N:N` | — | Sunucuya bildirilen pencere ölçek faktörü |
+| `--wf-tcp` | port listesi | — | Ele geçirilecek TCP portları |
+| `--wf-udp` | port listesi | — | Ele geçirilecek UDP portları |
+| `--ipset` | dosya yolu | — | Hedef IP aralıkları dosyası |
+| `--bind-addr` | IP adresi | — | Belirli ağ arayüzüne bağla |
+| `--ipcache-lifetime` | Saniye | 7200 | IP önbelleği giriş süresi |
+| `--dup` | Tamsayı | — | Orijinal başına yinelenen paket sayısı |
+
+---
+
+## 7. Parçalanmış El Sıkışma ve Kyber Desteği
+
+Modern tarayıcılar (Chrome 124+, Firefox 126+) kuantum sonrası anahtar kapsülleme için **ML-KEM (Kyber)** kullanır. Bu, TLS ClientHello boyutunu dramatik biçimde artırır:
+
+| ClientHello Tipi | Tipik Boyut | Tek Pakete Sığar mı? |
+|-----------------|------------|----------------------|
+| Klasik TLS 1.3 | ~300 bayt | ✅ Evet (MTU ~1500 bayt) |
+| TLS 1.3 + Kyber768 | ~1500-2000 bayt | ❌ Hayır, 2+ pakete bölünür |
+
+**Vane'in bu durumu nasıl ele aldığı:**
+
+1. El sıkışmanın ilk TCP segmentini yakalar.
+2. `handshake_length > (paket_boyutu - başlıklar)` kontrolüyle çok paketli ClientHello'yu tespit eder.
+3. Tam ClientHello alınana kadar tüm parçaları arabellekte tutar.
+4. Yapılandırılmış desync stratejisini yeniden birleştirilmiş ileti bloğu üzerinde uygular.
+5. Değiştirilmiş segmentleri doğru sırayla yeniden enjekte eder.
+
+---
+
+## 8. Bağlantı Takibi (Conntrack)
+
+Vane'in dahili conntrack modülü, wssize ve parçalanmış el sıkışma desteği gibi çok paketli işlemleri koordine etmek için canlı TCP ve UDP oturumlarını takip eder.
+
+| Özellik | Ayrıntılar |
+|---------|------------|
+| TCP durum takibi | SYN → ESTABLISHED → FIN / RST |
+| UDP akış takibi | Kaynak IP/port + Hedef IP/port anahtarı |
+| Etkin olmayan zaman aşımı | 60 saniye (UDP), 120 saniye (TCP established) |
+| Tanılama dökümü | Daemon sürecine `SIGUSR1` göndererek conntrack tablosu yazdırılır |
+
+---
+
+## 9. IP Önbelleği Yönetimi
+
+IP önbelleği, önceden hesaplanan atlama mesafelerini saklayarak yeni oturumların ilk paketinden itibaren anlık autottl kalibrasyonunu mümkün kılar.
+
+| Özellik | Değer |
+|---------|-------|
+| Önbellek anahtarı | Hedef IP + ağ arayüzü |
+| Önbellek değeri | Gözlemlenen TTL, hesaplanan atlama mesafesi, hostname |
+| Varsayılan ömür | 7200 saniye (2 saat) |
+| Geçersiz kılma | `--ipcache-lifetime=N` |
+| Tahliye politikası | LRU; kapasite aşıldığında en eski girişler silinir |
+
+---
+
+## 10. Vane Sistem Özellikleri
+
+### 10.1. DNS Koruma — Yerel DoH / DoT / DoQ Yönlendiricisi
+
+DNS Guard, `127.0.0.127:5353` üzerinde yerel bir çözümleyici çalıştırır. Standart UDP/53 DNS sorgularını şifreli kanallar üzerinden iletir.
+
+| Sağlayıcı | Protokol | Uç Nokta |
+|-----------|----------|----------|
+| Cloudflare | DoH | `https://cloudflare-dns.com/dns-query` |
+| Google | DoH | `https://dns.google/dns-query` |
+| AdGuard | DoH | `https://dns.adguard.com/dns-query` |
+| NextDNS | DoH | Yapılandırma üzerinden özel |
+| Özel | DoH | Kullanıcı tanımlı URL |
+
+**Özellik Özeti:**
+
+| Özellik | Durum |
+|---------|-------|
+| DNS-over-HTTPS | ✅ |
+| DNS-over-TLS | ✅ |
+| DNS-over-QUIC | ✅ |
+| Bellek içi DNS önbelleği | ✅ |
+| Önbellek TTL'ye uyum | ✅ |
+| Yerel alan adı yedek desteği (`.local`, `.lan`) | ✅ |
+| Eş zamanlılık limiti (100 paralel istek) | ✅ |
+| DoH sorguları için SOCKS5 proxy | ✅ |
+
+### 10.2. AdBlock DNS Filtresi
+
+DNS Guard, DNS düzeyinde engelleme için [StevenBlack hosts listesini](https://github.com/StevenBlack/hosts) (~100.000+ alan adı) entegre eder.
+
+| Kategori | Engellendi |
+|----------|------------|
+| Reklam ağları | ✅ |
+| Telemetri ve analitik | ✅ |
+| Zararlı yazılım / phishing alan adları | ✅ |
+| Sosyal medya izleyicileri | İsteğe bağlı |
+
+### 10.3. Kill Switch — DNS Sızıntı Koruması
+
+Kill Switch, yerel işletim sistemi API'leri kullanarak giden UDP/TCP port 53 trafiğini engeller:
+
+| İS | Mekanizma |
+|----|-----------|
+| Windows | Windows Filtreleme Platformu (WFP) |
+| Linux | iptables OUTPUT zincir kuralı |
+
+Etkinleştirildiğinde, şifreli DNS Guard tüneli dışındaki tüm DNS sorguları sessizce düşürülür.
+
+### 10.4. Otomatik Kurtarma Watchdog'u
+
+Watchdog, yapılandırılabilir hedef alan adlarına (varsayılan: `discord.com`) bağlantıyı sürekli izler.
+
+| Tetikleyici Koşul | Eylem |
+|-------------------|-------|
+| HTTP HEAD isteği başarısız | Preset optimize ediciyi çalıştır |
+| Optimize edici daha iyi preset bulur | Optimal presete geç |
+| ICMP ping zaman aşımı | Uyarı kaydı + yeniden deneme |
+| Motor süreci çöküşü | Aynı presetle motoru yeniden başlat |
+
+### 10.5. Preset Optimize Edici
+
+Optimize edici, mevcut ağ için en etkili yapılandırmayı bulmak amacıyla tüm presetleri canlı bağlantı hedeflerine karşı test eder.
+
+**Süreç:**
+1. Mevcut motor oturumunu durdur.
+2. Öncelik sırasına göre tüm presetleri dene.
+3. Her preset için motoru başlat ve test hedefine HTTP HEAD sorgusu çalıştır.
+4. HTTP < 400 döndüren ilk preseti seç.
+5. Kazanan presete geç ve normal çalışmaya devam et.
+
+### 10.6. SOCKS5 Üst Düzey Proxy
+
+DNS Guard'ın giden DoH sorgularını SOCKS5 proxy üzerinden tünellemeye olanak tanır:
+
+```
+DNS Sorgusu → DNS Guard → SOCKS5 Proxy → İnternet → DoH Sunucusu
+```
+
+DoH uç noktalarının da engellendiği ortamlarda şifreli DNS arama yolunu İSS'den gizler.
+
+### 10.7. Uzak Preset Senkronizasyonu
+
+Vane, uzak bir JSON uç noktasından (GitHub Gist veya CDN) preset tanımlarını çekebilir:
+
+- Önbelleğe alınmış kopya mevcutsa başlangıçta yüklenir (sıfır ağ I/O).
+- Başlangıçtan sonra arka planda yenilenir (engellemesiz).
+- Minisign kriptografik imzalarıyla doğrulanır.
+- Yerleşik presetlerin üzerine yazamaz (ID çakışma koruması).
+
+### 10.8. Etiketli Çıktılı Log Konsolu
+
+| Etiket | Renk | Kaynak |
+|--------|------|--------|
+| `[MOTOR]` | Mor | Zapret motor süreci |
+| `[DNS]` | Yeşil | DNS Guard yönlendiricisi |
+| `[ADBLOCK]` | Kırmızı | DNS filtreleme olayları |
+| `[GÜVENLİK]` | Sarı | Yetki kontrolleri, sanitasyon |
+| `[SİSTEM]` | Mavi | Otomatik başlatma, ağ değişiklikleri |
+| `[HATA]` | Kırmızı | Süreç hataları, kritik arızalar |
+| `[UYARI]` | Kehribar | Kritik olmayan uyarılar |
+
+### 10.9. Otomatik Başlatma ve Sistem Tepsisi
+
+Otomatik başlatma etkinleştirildiğinde, Vane bir Windows Görev Zamanlayıcı girişi kaydeder. Başlangıçta:
+
+1. Kalıcı ayarlar dosyasından son etkin preset ID'sini okur.
+2. Sistem DNS'inin güvenilir olup olmadığını kontrol eder; değilse Cloudflare DNS uygular.
+3. Kaydedilen presetle motoru sessizce başlatır.
+4. Ana pencereyi gizler; sistem tepsisi simgesini gösterir.
+
+### 10.10. Ağ Değişikliği Algılama
+
+Vane, ağ adaptörü değişikliklerini algılamak için `WM_DEVICECHANGE` (Windows) veya netlink soket olaylarını (Linux) dinler.
+
+- Yeni bir adaptör bağlandığında `network_changed` olayı gönderilir.
+- Ön yüz arayüzü DNS adaptör durumunu ve ağ istatistiklerini yeniler.
+- WinDivert, yakalama filtrelerini yeni adaptörlere otomatik olarak uygular — motor yeniden başlatma gerekmez.
+
+---
+
+## 11. Yerleşik Presetler
+
+| ID | Etiket | Strateji | Hedef |
+|----|--------|----------|-------|
+| `tr-1` | TR Standart | `fake,multidisorder` + `autottl` + `badseq` | Türk İSS'leri |
+| `tr-2` | TR Agresif | `fake,multidisorder` + `md5sig` + sabit TTL | Kısıtlayıcı Türk İSS'leri |
+| `tr-3` | TR Fragment | `multisplit` + `fakedsplit` | Parçalanma tabanlı aşma |
+| `tr-4` | TR Desync-HTTPS | Özel bölme ile HTTPS'e özgü desync | Yalnızca HTTPS denetimi |
+| `tr-5` | TR QUIC | UDP 443 + `fakeknown` | YouTube QUIC akışları |
+| `discord-voip` | Discord & VoIP Düzeltmesi | UDP 50000-65535 sahte enjeksiyonu | Sesli sohbet kararlılığı |
+
+---
+
+## 12. Gelişmiş Yapılandırma — Tam Parametre Tablosu
+
+### DPI Desync
+
+| Ayar | Parametre | Değerler | Açıklama |
+|------|-----------|---------|----------|
+| Desync Yöntemi | `--dpi-desync` | `split`, `disorder`, `fake`, `multisplit`... | Birincil aşma yöntemi |
+| İkincil Yöntem | `--dpi-desync2` | Yukarıdakiyle aynı | İlk yöntemden sonra uygulanır |
+| Bölme Konumu | `--dpi-desync-split-pos` | İşaretçi veya tamsayı listesi | TCP yükünün nerede kesileceği |
+| HTTP Bölme Hedefi | `--dpi-desync-split-http-req` | `none`, `method`, `host` | HTTP'ye özgü bölme çıpası |
+| TLS Bölme Hedefi | `--dpi-desync-split-tls` | `none`, `sni`, `snh` | TLS'ye özgü bölme çıpası |
+| Yanıltma Modu | `--dpi-desync-fooling` | `badsum`, `badseq`, `md5sig`, `ts`, `datanoack`... | Sahteyi sunucuya ulaşmaktan engelle |
+| Otomatik TTL | `--dpi-desync-autottl` | `[-]N:N-N` | TTL'yi dinamik olarak kalibre et |
+| Sabit TTL | `--dpi-desync-ttl` | Tamsayı | Sabit sahte TTL değeri |
+| Genişletilmiş TTL | `--dpi-desync-ttl-ext` | Tamsayı | TTL'ye eklenen ofset |
+| Sahte Tekrarlar | `--dpi-desync-repeats` | Tamsayı | Sahte paket sayısı |
+| Herhangi Protokol | `--dpi-desync-any-protocol` | Bayrak | Tüm TCP'ye uygula |
+| Kesim Noktası | `--dpi-desync-cutoff` | `d1`-`d9`, `s1`-`sN` | İlk N pakete desync uygula |
+
+### Sahte Yük
+
+| Ayar | Parametre | Açıklama |
+|------|-----------|----------|
+| Özel TLS SNI | `--dpi-desync-fake-tls-sni` | Sahte TLS ClientHello için alan adı |
+| Sahte HTTP Yükü | `--dpi-desync-fake-http` | HTTP sahteleri için metin veya dosya |
+| Sahte TLS Yükü | `--dpi-desync-fake-tls` | TLS sahteleri için metin veya dosya |
+| Sahte QUIC Yükü | `--dpi-desync-fake-quic` | QUIC sahteleri için metin veya dosya |
+
+### Paket ve Trafik
+
+| Ayar | Parametre | Açıklama |
+|------|-----------|----------|
+| MSS Geçersiz Kılma | `--mss` | TCP Maksimum Segment Boyutu |
+| TCP Pencere Boyutu | `--tcp-window-size` | Gönderilen paketlerde pencere geçersiz kılma |
+| Sunucu Pencere Ölçeği | `--wssize` | Sunucuya bildirilen pencereyi kısıtla |
+
+### Protokol ve Portlar
+
+| Ayar | Parametre | Örnek | Açıklama |
+|------|-----------|-------|----------|
+| TCP Portları | `--wf-tcp` | `80,443` | Ele geçirilecek TCP portları |
+| UDP Portları | `--wf-udp` | `443` | Ele geçirilecek UDP portları |
+| QUIC UDP | `--wf-udp=443` | Bayrak | QUIC aşmasını etkinleştir |
+
+---
+
+## 13. Pratik Engel Aşma Stratejileri
+
+### Strateji 1: Temel Bölme (Güvenli, Maksimum Uyumluluk)
+
 ```
 --wf-tcp=80,443 --dpi-desync=split --dpi-desync-split-pos=2
 ```
-*Çalışma Mantığı*: Tüm HTTP ve TLS el sıkışmalarını 2. bayt konumundan böler.
 
-### Senaryo 2: Autottl ve Sahte Paket Enjeksiyonu (Agresif Strateji)
-Alan adının sıkı denetlendiği ve sahte paketlerin kabul edildiği ağlarda kullanılır.
-```
---wf-tcp=80,443 --dpi-desync=fake,multidisorder --dpi-desync-autottl=-1:3-20 --dpi-desync-fooling=badseq --dpi-desync-any-protocol
-```
-*Çalışma Mantığı*:
-1. Sunucunun gerçek TTL değerini ölçer.
-2. Belirlenen TTL ve badseq değeri ile sahte paket enjekte eder.
-3. Kalan orijinal paket parçalarını ters sırada sunucuya gönderir.
+### Strateji 2: AutoTTL Sahte + Bozuk Düzen (Varsayılan — Türkiye)
 
-### Senaryo 3: Türkiye Ağ Sağlayıcıları Ayarı (TR 1 Yerleşik Preseti)
-Türkiye'deki servis sağlayıcıların engelleme yapılarına karşı optimize edilmiş yerleşik kuraldır.
 ```
---wf-tcp=80,443 --wf-udp=443 --dpi-desync=split --dpi-desync-any-protocol --dpi-desync-cutoff=d3 --dpi-desync-split-pos=4 --dpi-desync-fooling=md5sig --dpi-desync-autottl
+--wf-tcp=80,443 --wf-udp=443 --dpi-desync=fake,multidisorder
+--dpi-desync-autottl=-1:3-20 --dpi-desync-fooling=badseq
+--dpi-desync-any-protocol --dpi-desync-cutoff=d3
 ```
-*Çalışma Mantığı*:
-- Hem TCP (web siteleri) hem de UDP (QUIC/HTTP3) trafiğini hedefler.
-- Kesin bölme pozisyonu 4 olacak şekilde split yöntemini uygular.
-- MD5 signature yanıltmasını kullanarak sahte veri doğrulamalarını aşar.
-- autottl ile TTL sınırlarını otomatik belirler.
+
+**Mekanizma:**
+1. TTL kalibrasyonu için sunucu TTL'sini ölçer.
+2. Hesaplanan TTL ve kötü sıra numarasıyla sahte paket gönderir.
+3. Kalan gerçek segmentleri bozuk düzen sırasıyla gönderir.
+4. Oturum başına yalnızca ilk 3 veri paketine uygulanır.
+
+### Strateji 3: MD5 İmzası + Bölme (Yoğun İSS Aşması)
+
+```
+--wf-tcp=80,443 --wf-udp=443 --dpi-desync=fake,multidisorder
+--dpi-desync-fooling=md5sig --dpi-desync-autottl
+--dpi-desync-split-pos=4 --dpi-desync-any-protocol
+```
+
+### Strateji 4: QUIC + VoIP Aşması
+
+```
+--wf-udp=443,50000-65535 --dpi-desync=fake --dpi-desync-repeats=2
+--dpi-desync-fooling=badseq --dpi-desync-any-protocol
+```
+
+### Strateji 5: wssize (Sunucu Tarafı Sertifika Gizleme)
+
+```
+--wf-tcp=443 --wssize=1:6 --dpi-desync=split --dpi-desync-split-pos=2
+```
+
+### Strateji 6: Fragment Yöntemi
+
+```
+--wf-tcp=80,443 --dpi-desync=multisplit,fakedsplit
+--dpi-desync-split-pos=2,4 --dpi-desync-fooling=badseq
+```
 
 ---
 
-## 7. Güvenlik Duvarı ve Linux Entegrasyonu (Iptables/Nftables)
+## 14. Güvenlik Duvarı Kurulumu — Linux (Iptables / Nftables)
 
-Linux üzerinde `nfqws` kullanımı için paketlerin NFQUEUE kuyruğuna yönlendirilmesi gerekir.
+### Iptables
 
-### Iptables Yönlendirme Örneği
 ```bash
-# Giden HTTP ve HTTPS trafiğini nfqws kuyruk 1'e yönlendir
-iptables -A OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 1 --queue-bypass
+# Giden TCP (HTTP + HTTPS)
+iptables -A OUTPUT -p tcp -m multiport --dports 80,443 \
+  -j NFQUEUE --queue-num 200 --queue-bypass
 
-# Gelen trafiği yönlendir (autottl hesaplamaları için gereklidir)
-iptables -A INPUT -p tcp -m multiport --sports 80,443 -j NFQUEUE --queue-num 1 --queue-bypass
+# Gelen TCP (autottl için sunucu TTL gözlemi gerektirir)
+iptables -A INPUT -p tcp -m multiport --sports 80,443 \
+  -j NFQUEUE --queue-num 200 --queue-bypass
+
+# Giden QUIC (HTTP/3)
+iptables -A OUTPUT -p udp --dport 443 \
+  -j NFQUEUE --queue-num 200 --queue-bypass
 ```
 
-### Nftables Yönlendirme Örneği
+### Nftables
+
 ```nftables
-table inet vane_filter {
-    chain bypass_out {
-        type filter hook output priority filter; policy accept;
-        tcp dport { 80, 443 } queue num 1 bypass
+table ip vane_mangle {
+    chain output {
+        type filter hook output priority mangle; policy accept;
+        tcp dport { 80, 443 } queue num 200
+        udp dport 443 queue num 200
     }
-    chain bypass_in {
-        type filter hook input priority filter; policy accept;
-        tcp sport { 80, 443 } queue num 1 bypass
+    chain input {
+        type filter hook input priority mangle; policy accept;
+        tcp sport { 80, 443 } queue num 200
     }
 }
 ```
 
----
-
-## 8. Sınırlar ve Engellemenin Aşılamadığı Durumlar
-
-Paket manipülasyon teknikleri şu senaryolarda yetersiz kalabilir:
-1. **IP Tabanlı Engelleme**: Hedef sunucunun IP adresi yönlendirme katmanında tamamen yasaklandıysa paket içeriğini değiştirmek işe yaramaz. VPN veya proxy kullanımı zorunludur.
-2. **Aktif TCP Yeniden Yapılandırma**: ISS trafiği tamamen sonlandırıp yeniden inşa eden şeffaf bir proxy (transparent proxy) üzerinden yönlendiriyorsa, Vane'in değiştirdiği paketler proxy tarafından yutulur.
-3. **Aktif Problama (Active Probing)**: Güvenlik duvarının istemciye doğrulama paketleri göndererek bağlantının gerçekliğini test ettiği durumlar.
+> Vane, Linux'ta motor başlatıldığında bu kuralları otomatik olarak uygular.
 
 ---
 
-## 9. Kod Tabanı Mimarisi ve Geliştirici Kılavuzu
+## 15. Güvenlik Mimarisi
 
-Vane kod tabanı Rust (backend) ve React/TypeScript (frontend) olarak ikiye ayrılır.
+| Kontrol | Mekanizma | Konum |
+|---------|-----------|-------|
+| IPC beyaz listesi | Tüm Tauri komutları URL şemalarını ve preset ID'lerini doğrular | `commands.rs` |
+| Argüman sanitasyonu | Katı beyaz liste — yalnızca bilinen zapret parametreleri kabul edilir | `sanitizer.rs` |
+| Kabuk enjeksiyonu önleme | Linux kök sarmalayıcısında tüm argümanlara tek tırnak kaçış işlemi | `manager.rs` |
+| İkili dosya bütünlüğü | Çalışmadan önce `winws.exe` / `nfqws` SHA-256 doğrulaması | `manager.rs` |
+| Süreç izolasyonu | `KILL_ON_JOB_CLOSE` ile Windows İş Nesnesi | `job.rs` |
+| Kapasite kısıtlaması | WebView'de `fs:write`, `fs:read` veya `shell:execute` yok | `capabilities/default.json` |
+| İçerik Güvenlik Politikası | `script-src 'self'` — harici komut dosyası yok | `tauri.conf.json` |
+| Güncelleyici imzası | Kurulumdan önce Minisign imza doğrulaması | `updater.rs` |
+| Preset ID doğrulaması | Yalnızca alfanümerik + `-` + `_`, maksimum uzunluk uygulanır | `loader.rs` |
+| DNS sızıntı önleme | Kill Switch giden UDP/TCP 53'ü engeller | `dns/mod.rs` |
 
+---
+
+## 16. Kurulum
+
+### Windows
+
+1. [Releases](https://github.com/luluwux/Vane/releases) sayfasından en son `.msi` yükleyicisini indirin.
+2. Yükleyiciyi Yönetici olarak çalıştırın.
+3. Vane'i Başlat Menüsünden başlatın.
+
+> Vane, WinDivert çekirdek sürücüsünü yüklemek için Yönetici yetkisi gerektirir.
+
+### Linux
+
+1. [Releases](https://github.com/luluwux/Vane/releases) sayfasından `.deb` (Debian/Ubuntu) veya `.AppImage` dosyasını indirin.
+2. `sudo dpkg -i vane_*.deb` veya `chmod +x Vane_*.AppImage && ./Vane_*.AppImage` ile kurun.
+3. Vane'i başlatın; motor başlatıldığında `pkexec` (PolicyKit) kök yükseltmesi isteyecektir.
+
+---
+
+## 17. Kaynak Koddan Derleme
+
+### Gereksinimler
+
+| Araç | Sürüm |
+|------|-------|
+| Node.js | LTS (20+) |
+| npm | 10+ |
+| Rust | Kararlı (2021 sürümü) |
+| Tauri CLI | v2 |
+
+### Derleme Adımları
+
+```bash
+# Depoyu klonla
+git clone https://github.com/luluwux/Vane.git
+cd Vane
+
+# Ön yüz bağımlılıklarını yükle
+npm install
+
+# Geliştirme modu (sıcak yenileme)
+npm run tauri dev
+
+# Üretim derlemesi
+npm run tauri build
 ```
-src/                        React arayüzü (bileşenler, store ve stiller)
-src-tauri/
-  src/
-    engine/                 Süreç yönetimi, logger ve parametre temizleyici
-    dns/                    Yerel yönlendirici, önbellek ve filtreleme ayarları
-    presets/                Senkronizasyon ve Minisign imza kontrolleri
-    logging.rs              Canlı log etiket sınıflandırması
-    commands.rs             Arayüze sunulan Tauri API komutları
+
+### Backend Testleri
+
+```bash
+cd src-tauri
+cargo test
+cargo clippy
 ```
 
-### Parametre Temizleyici (Sanitizer)
-Komut enjeksiyonu açıklarını önlemek için `src-tauri/src/engine/sanitizer.rs` dosyası süreç başlatılmadan önce tüm argümanları beyaz liste üzerinden kontrol eder. Listede olmayan parametreler reddedilir.
+---
+
+## 18. Sorun Giderme
+
+| Sorun | Olası Neden | Çözüm |
+|-------|-------------|-------|
+| Motor başlamıyor | WinDivert sürücü çakışması | Diğer DPI araçlarını kapat (GoodbyeDPI vb.) |
+| DNS sızıntısı tespit edildi | Kill Switch devre dışı | DNS sekmesinde Kill Switch'i etkinleştir |
+| Günlüklerde `[HATA]` | Yönetici olarak çalışmıyor | Vane'i Yönetici olarak yeniden başlat |
+| Etkinleştirme sonrası yüksek gecikme | wssize tüm bağlantılarda etkin | wssize'ı devre dışı bırak veya belirli portlarla sınırla |
+| QUIC akışları hâlâ engelleniyor | QUIC aşması etkin değil | Gelişmiş sekmede UDP 443'ü etkinleştir |
+| Motor başlayıp hemen duruyor | İkili dosya hash uyuşmazlığı | Vane yükleyicisini yeniden indir |
+| Uzak presetler yüklenmiyor | Güvenlik duvarı GitHub CDN'i engelliyor | Ağı kontrol et veya preset senkronizasyonunu devre dışı bırak |
 
 ---
 
-## 10. Sorun Giderme ve Teşhis
+## 19. Sınırlamalar ve Engel Aşmanın Yetersiz Kaldığı Durumlar
 
-- **WinDivert sürücü hatası**: GoodbyeDPI gibi diğer aşma araçlarının tamamen kapalı olduğundan emin olun.
-- **DNS Sızıntısı**: Safety & Proxy sekmesinden Kill Switch özelliğinin açık olduğunu doğrulayın.
-- **Log ekranında [HATA] yazısı**: Vane'in Yönetici (Administrator) yetkileriyle başlatıldığından emin olun.
+| Senaryo | Neden | Alternatif |
+|---------|-------|------------|
+| IP düzeyinde engelleme | Hedef IP yönlendirme katmanında engelleniyor | VPN veya proxy |
+| Şeffaf TCP proxy | İSS TCP'yi tamamen sonlandırıp yeniden oluşturuyor | VPN |
+| Aktif yoklama | İSS meşruiyeti doğrulamak için yoklama paketleri gönderiyor | Yoklama dirençli VPN |
+| TLS 1.2 parmak izi | Statik şifre grubu siparişleri tespit ediliyor | İstemci OS / TLS kütüphanesini güncelle |
+| MITM sertifika denetimi | İSS kendi CA'sını OS güven deposuna yüklüyor | Güvenilmeyen CA'ları OS'den kaldır |
+| Tam engelleme | TCP SYN yönlendirme düzeyinde düşürülüyor | VPN |
 
 ---
 
-## 11. Emeği Geçenler ve Lisans
+## 20. Emeği Geçenler ve Lisans
 
-- **zapret** by bol-van: Atlatma motoru çekirdeği.
-- **Tauri**: Uygulama çerçevesi.
-- **Minisign**: Kriptografik imza doğrulama kütüphanesi.
+- **[zapret](https://github.com/bol-van/zapret)** — bol-van tarafından: Temel DPI engeli aşma motoru.
+- **[WinDivert](https://reqrypt.org/windivert.html)** — basil00 tarafından: Windows çekirdek paketi yakalama sürücüsü.
+- **[Tauri](https://tauri.app)** — Güvenli masaüstü uygulama çerçevesi.
+- **[Minisign](https://jedisct1.github.io/minisign/)** — Kriptografik imza doğrulama.
+- **[StevenBlack/hosts](https://github.com/StevenBlack/hosts)** — AdBlock hosts listesi.
 
-MIT Lisansı ile korunmaktadır.
+**GPL-3.0 Lisansı** altında lisanslanmıştır — ayrıntılar için [LICENSE](LICENSE) dosyasına bakın.
+
+---
+
+## 21. Topluluk
+
+| Kanal | Bağlantı |
+|-------|----------|
+| 🐛 Hata Bildirimleri | [GitHub Issues](https://github.com/luluwux/Vane/issues) |
+| 💡 Özellik İstekleri | [GitHub Issues](https://github.com/luluwux/Vane/issues) |
+| 💬 Discord (Kişisel) | [luppux](https://discord.com/users/852103749228036136) |
+| 💬 Discord (Topluluk) | [discord.gg/luppux](https://discord.gg/luppux) |
+| 📧 Güvenlik Bildirimleri | alp@archey.com.tr |
+| 📋 Katkı Sağlama | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| 🔒 Güvenlik Politikası | [SECURITY.md](SECURITY.md) |
+| 📝 Değişim Günlüğü | [CHANGELOG.md](CHANGELOG.md) |

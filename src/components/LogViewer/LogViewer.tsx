@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { LogLine } from '../../types/engine';
+import { useEngineStore } from '../../store/engineStore';
+import { translations } from '../../utils/translations';
 import styles from './LogViewer.module.css';
 
 interface LogViewerProps {
@@ -9,6 +11,8 @@ interface LogViewerProps {
 
 /** Terminal benzeri log görüntüleyici. Yeni satır geldiğinde otomatik scroll yapar. */
 export function LogViewer({ logs, onClear }: LogViewerProps) {
+  const { language } = useEngineStore();
+  const t = translations[language];
   const outputRef = useRef<HTMLDivElement>(null);
 
   // Yeni log gelince aşağı scroll
@@ -21,23 +25,23 @@ export function LogViewer({ logs, onClear }: LogViewerProps) {
   return (
     <div className={styles.viewer}>
       <div className={styles.toolbar}>
-        <span className={styles.toolbarTitle}>Engine Output</span>
+        <span className={styles.toolbarTitle}>{t.engineOutput}</span>
         <div className={styles.toolbarActions}>
-          <span className={styles.logCount}>{logs.length} lines</span>
+          <span className={styles.logCount}>{logs.length} {t.lines}</span>
           <button
             id="log-clear-btn"
             className={styles.toolbarBtn}
             onClick={onClear}
             disabled={logs.length === 0}
           >
-            Clear
+            {t.clear}
           </button>
         </div>
       </div>
 
       <div ref={outputRef} className={styles.output} role="log" aria-live="polite">
         {logs.length === 0 ? (
-          <div className={styles.empty}>Engine has not been started yet.</div>
+          <div className={styles.empty}>{t.notStartedYet}</div>
         ) : (
           logs.map((line) => <LogLineRow key={line.id} line={line} />)
         )}

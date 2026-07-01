@@ -530,8 +530,16 @@ pub async fn get_geoip_data(state: State<'_, AppState>) -> Result<IpWhoIsRespons
 
 #[tauri::command]
 pub fn open_url(app: AppHandle, url: String) -> Result<(), String> {
+    if !url.starts_with("https://") && !url.starts_with("http://") {
+        return Err("Güvenlik ihlali: Yalnızca HTTP veya HTTPS şemalarına izin verilir.".into());
+    }
     use tauri_plugin_shell::ShellExt;
     app.shell().open(url, None).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_network_stats() -> (u64, u64) {
+    crate::network::get_total_network_bytes()
 }
 
 

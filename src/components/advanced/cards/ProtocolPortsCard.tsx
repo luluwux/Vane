@@ -1,6 +1,7 @@
 import { Radio } from 'lucide-react';
 import styles from '../../../views/AdvancedView.module.css';
 import { Toggle } from '../ui/Toggle';
+import { useEngineStore } from '../../../store/engineStore';
 import type { AdvancedConfig } from '../../../store/engineStore';
 
 interface Props {
@@ -9,31 +10,51 @@ interface Props {
 }
 
 export function ProtocolPortsCard({ config: c, update }: Props) {
+  const { language } = useEngineStore();
+  const isTr = language === 'tr';
+
   return (
     <div className={styles.card}>
       <div className={styles.cardHeader}>
         <Radio size={18} className={styles.cardIcon} />
-        <h3>Protocol &amp; Ports</h3>
+        <h3>{isTr ? 'Protokol & Port Ayarları' : 'Protocol & Ports'}</h3>
       </div>
       <div className={styles.settingsList}>
+        {/* QUIC / UDP Handling */}
         <div className={styles.settingRow}>
           <div className={styles.settingInfo}>
-            <label>QUIC / UDP Handling</label>
-            <span>Include UDP 443 traffic (YouTube, Discord, etc.) in bypass.</span>
+            <label>{isTr ? 'QUIC / UDP İşleme' : 'QUIC / UDP Handling'}</label>
+            <span>{isTr ? 'UDP 443 trafiğini (YouTube, Discord vb.) desync tüneline dahil et. (--wf-udp=443)' : 'Include UDP 443 traffic (YouTube, Discord, etc.) in bypass. (--wf-udp=443)'}</span>
           </div>
           <Toggle checked={c.quicUdpHandling} onChange={(v) => update('quicUdpHandling', v)} />
         </div>
 
+        {/* HTTP Ports */}
         <div className={styles.settingRow}>
           <div className={styles.settingInfo}>
-            <label>HTTP Ports</label>
-            <span>Ports to enter the bypass engine (comma separated).</span>
+            <label>{isTr ? 'HTTP Portları' : 'HTTP Ports'}</label>
+            <span>{isTr ? 'Yönlendirme motoruna girecek TCP portları (virgülle ayırın). (--wf-tcp)' : 'TCP ports to enter the bypass engine (comma separated). (--wf-tcp)'}</span>
           </div>
           <input 
             type="text" 
             className={styles.textInput} 
             value={c.httpPorts} 
             onChange={(e) => update('httpPorts', e.target.value)} 
+          />
+        </div>
+
+        {/* Bind Interface / IP */}
+        <div className={styles.settingRow}>
+          <div className={styles.settingInfo}>
+            <label>{isTr ? 'Dinlenecek Arayüz / IP' : 'Bind Interface / IP'}</label>
+            <span>{isTr ? 'Zapret\'in dinleyeceği yerel IP adresi veya proxy adresi (örn: 127.0.0.1). (--bind-addr / --socks)' : 'Local interface IP or proxy address to bind to (e.g. 127.0.0.1). (--bind-addr / --socks)'}</span>
+          </div>
+          <input 
+            type="text" 
+            className={styles.textInput} 
+            value={c.bindInterface} 
+            onChange={(e) => update('bindInterface', e.target.value)} 
+            placeholder="e.g. 127.0.0.1"
           />
         </div>
       </div>

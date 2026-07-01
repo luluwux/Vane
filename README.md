@@ -5,354 +5,948 @@
 <h1 align="center">Vane DPI</h1>
 
 <p align="center">
-  <strong>The Ultimate DPI Bypass and Network Security Control Center</strong>
+  <strong>Advanced DPI Bypass & Encrypted DNS Control Center — Powered by Zapret</strong>
 </p>
 
 <p align="center">
-  <a href="README.tr.md">[![tr](https://img.shields.io/badge/lang-tr-blue.svg)](README.tr.md)</a>
+  <a href="README.tr.md"><img src="https://img.shields.io/badge/lang-tr-blue.svg" alt="tr"></a>
+  <img src="https://img.shields.io/github/actions/workflow/status/luluwux/Vane/releases.yml?style=flat-square&label=build" alt="Build Status">
+  <img src="https://img.shields.io/github/license/luluwux/Vane?style=flat-square&color=blue" alt="License">
+  <img src="https://img.shields.io/github/v/release/luluwux/Vane?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/discord/luppux?style=flat-square&logo=discord&color=5865F2" alt="Discord">
 </p>
 
 ---
 
 ## Table of Contents
 
-- [1. Overview and Project Goals](#1-overview-and-project-goals)
-- [2. How Deep Packet Inspection (DPI) Works](#2-how-deep-packet-inspection-dpi-works)
-  - [2.1. Passive DPI vs Active DPI](#21-passive-dpi-vs-active-dpi)
-  - [2.2. SNI and Hostname Extraction](#22-sni-and-hostname-extraction)
-  - [2.3. Block Injection (RST and Redirects)](#23-block-injection-rst-and-redirects)
-  - [2.4. DNS Poisoning](#24-dns-poisoning)
-- [3. Zapret Architecture and nfqws/winws Core](#3-zapret-architecture-and-nfqwswinws-core)
-- [4. Advanced Evasion Techniques and Evasion Mechanics](#4-advanced-evasion-techniques-and-evasion-mechanics)
-  - [4.1. TCP Segmentation and Ordering Options](#41-tcp-segmentation-and-ordering-options)
-  - [4.2. Fake Packet Injection and Fooling Modes](#42-fake-packet-injection-and-fooling-modes)
-  - [4.3. Customizing Fake ClientHello Payloads](#43-customizing-fake-clienthello-payloads)
-  - [4.4. Sequence Number Overlaps (seqovl)](#44-sequence-number-overlaps-seqovl)
-  - [4.5. IP ID Assignment Schemes](#45-ip-id-assignment-schemes)
-  - [4.6. Handshake Reassembly (Kyber and Fragmented ClientHello)](#46-handshake-reassembly-kyber-and-fragmented-clienthello)
-  - [4.7. UDP Desync and QUIC/VoIP Evasion](#47-udp-desync-and-quicvoip-evasion)
-  - [4.8. Server-Side Response Manipulation (wssize)](#48-server-side-response-manipulation-wssize)
-  - [4.9. Duplicates Injection](#49-duplicates-injection)
-  - [4.10. Original Packet Modding](#410-original-packet-modding)
-  - [4.11. SYNDATA Mode](#411-syndata-mode)
-  - [4.12. IP Cache Management](#412-ip-cache-management)
-  - [4.13. Connection Tracking (Conntrack)](#413-connection-tracking-conntrack)
-- [5. Vane System Features](#5-vane-system-features)
-  - [5.1. DNS Guard (Local DoH/DoT/DoQ forwarder)](#51-dns-guard-local-dohdotdoq-forwarder)
-  - [5.2. Safety Controls (Kill Switch and Watchdog)](#52-safety-controls-kill-switch-and-watchdog)
-  - [5.3. Upstream Proxy Configuration](#53-upstream-proxy-configuration)
-  - [5.4. Log Output Console with Categorized Badges](#54-log-output-console-with-categorized-badges)
-- [6. Combining Advanced Parameters (Practical Strategies)](#6-combining-advanced-parameters-practical-strategies)
-- [7. Firewall and Linux Integration (Iptables/Nftables)](#7-firewall-and-linux-integration-iptablesnftables)
-- [8. Limitations and When Evasion Fails](#8-limitations-and-when-evasion-fails)
-- [9. Codebase Architecture and Development Guide](#9-codebase-architecture-and-development-guide)
-- [10. Troubleshooting and Diagnostics](#10-troubleshooting-and-diagnostics)
-- [11. Credits and License](#11-credits-and-license)
+- [1. What is Vane?](#1-what-is-vane)
+- [2. What is Zapret?](#2-what-is-zapret)
+- [3. How Deep Packet Inspection (DPI) Works](#3-how-deep-packet-inspection-dpi-works)
+  - [3.1. Passive DPI vs Active DPI](#31-passive-dpi-vs-active-dpi)
+  - [3.2. SNI and Hostname Extraction](#32-sni-and-hostname-extraction)
+  - [3.3. Block Injection — RST and HTTP Redirects](#33-block-injection--rst-and-http-redirects)
+  - [3.4. DNS Poisoning and Hijacking](#34-dns-poisoning-and-hijacking)
+  - [3.5. Deep Fingerprinting and Behavioral Analysis](#35-deep-fingerprinting-and-behavioral-analysis)
+- [4. Zapret Architecture — nfqws / winws Core](#4-zapret-architecture--nfqws--winws-core)
+  - [4.1. WinDivert (Windows)](#41-windivert-windows)
+  - [4.2. NFQUEUE (Linux)](#42-nfqueue-linux)
+  - [4.3. Packet Processing Pipeline](#43-packet-processing-pipeline)
+- [5. DPI Desync Strategies](#5-dpi-desync-strategies)
+  - [5.1. TCP Segmentation Methods](#51-tcp-segmentation-methods)
+  - [5.2. Split Position Markers](#52-split-position-markers)
+  - [5.3. Fake Packet Injection](#53-fake-packet-injection)
+  - [5.4. Fooling Modes](#54-fooling-modes)
+  - [5.5. Fake Payload Customization](#55-fake-payload-customization)
+  - [5.6. Sequence Number Overlap (seqovl)](#56-sequence-number-overlap-seqovl)
+  - [5.7. IP ID Assignment Schemes](#57-ip-id-assignment-schemes)
+  - [5.8. SYNDATA Mode](#58-syndata-mode)
+  - [5.9. Original Packet Modding](#59-original-packet-modding)
+  - [5.10. Duplicate Packet Injection](#510-duplicate-packet-injection)
+  - [5.11. Server-Side Window Manipulation (wssize)](#511-server-side-window-manipulation-wssize)
+  - [5.12. UDP / QUIC Desync](#512-udp--quic-desync)
+- [6. Desync Parameter Reference Table](#6-desync-parameter-reference-table)
+- [7. Fragmented Handshake and Kyber Support](#7-fragmented-handshake-and-kyber-support)
+- [8. Connection Tracking (Conntrack)](#8-connection-tracking-conntrack)
+- [9. IP Cache Management](#9-ip-cache-management)
+- [10. Vane System Features](#10-vane-system-features)
+  - [10.1. DNS Guard — Local DoH / DoT / DoQ Forwarder](#101-dns-guard--local-doh--dot--doq-forwarder)
+  - [10.2. AdBlock DNS Filtering](#102-adblock-dns-filtering)
+  - [10.3. Kill Switch — DNS Leak Protection](#103-kill-switch--dns-leak-protection)
+  - [10.4. Auto-Recovery Watchdog](#104-auto-recovery-watchdog)
+  - [10.5. Preset Optimizer](#105-preset-optimizer)
+  - [10.6. SOCKS5 Upstream Proxy](#106-socks5-upstream-proxy)
+  - [10.7. Remote Preset Sync](#107-remote-preset-sync)
+  - [10.8. Log Console with Tagged Output](#108-log-console-with-tagged-output)
+  - [10.9. Auto-Start and Tray Integration](#109-auto-start-and-tray-integration)
+  - [10.10. Network Change Detection](#1010-network-change-detection)
+- [11. Built-in Presets](#11-built-in-presets)
+- [12. Advanced Configuration — Full Parameter Table](#12-advanced-configuration--full-parameter-table)
+- [13. Practical Bypass Strategies](#13-practical-bypass-strategies)
+- [14. Firewall Setup — Linux (Iptables / Nftables)](#14-firewall-setup--linux-iptables--nftables)
+- [15. Security Architecture](#15-security-architecture)
+- [16. Installation](#16-installation)
+- [17. Building from Source](#17-building-from-source)
+- [18. Troubleshooting](#18-troubleshooting)
+- [19. Limitations and When Evasion Fails](#19-limitations-and-when-evasion-fails)
+- [20. Credits and License](#20-credits-and-license)
+- [21. Community](#21-community)
 
 ---
 
-## 1. Overview and Project Goals
+## 1. What is Vane?
 
-Vane DPI is a high-performance network security console and graphical controller developed for the zapret deep packet inspection circumvention suite (winws on Windows, nfqws on Linux). While the low-level zapret engine is exceptionally powerful, configuring it requires managing raw terminal processes, constructing complex command-line arguments, and manually configuring system network adapters and firewall policies. 
+Vane is a secure, graphical desktop application that acts as a control center for the [zapret](https://github.com/bol-van/zapret) DPI bypass engine. It wraps the low-level `winws` (Windows) and `nfqws` (Linux) daemons in a modern Tauri v2 + Rust + React/TypeScript interface.
 
-Vane addresses these challenges by wrapping the daemon in a secure desktop environment. It automates process execution, manages local firewall rules, implements encrypted DNS routing, and performs real-time connection checks. The goal is to provide a central graphical hub for power users, network administrators, and developers to deploy DPI evasion rules safely and efficiently.
+**Vane is NOT a VPN.** It does not route your traffic through a remote server. Instead, it manipulates outgoing and incoming packets at the kernel level to confuse ISP Deep Packet Inspection systems. All traffic remains on your own connection — only the packet structure is modified.
 
----
+### What Vane Automates
 
-## 2. How Deep Packet Inspection (DPI) Works
-
-To design effective evasion strategies, it is critical to understand the architecture of the inspection systems deployed by Internet Service Providers (ISPs).
-
-### 2.1. Passive DPI vs Active DPI
-
-- **Passive DPI**: Installed via network optical splitters or mirror ports (TAP). It receives a copy of the network traffic but does not sit directly in the transmission path. Because it cannot drop original packets, it prevents access by injecting spoofed TCP RST (Reset) packets or HTTP redirects, hoping they reach the client before the server's real response.
-- **Active DPI**: Deployed inline (directly in the transmission path). It can delay, drop, modify, or rate-limit packets in real time. Evasion here is more difficult because the system can drop packets that look suspicious.
-
-### 2.2. SNI and Hostname Extraction
-
-DPI appliances inspect the initial handshake phase of encrypted connections.
-- **HTTP**: The system inspects the plain-text Host: header in the HTTP request payload.
-- **HTTPS (TLS)**: The system inspects the Server Name Indication (SNI) extension inside the plain-text ClientHello packet. If the SNI matches a blocked domain pattern, the inspection system triggers block injection.
-
-### 2.3. Block Injection (RST and Redirects)
-
-When a forbidden domain is identified:
-- The passive DPI injector sends a spoofed TCP packet with the RST or FIN flag set to both the client and the server.
-- For HTTP connections, it may send a spoofed HTTP 302 redirect packet pointing to an ISP warning page.
-- If the fake packet arrives at the destination before the real packet, the socket is torn down, resulting in a connection failure.
-
-### 2.4. DNS Poisoning
-
-Before a TCP connection can be established, the domain name must be resolved. ISPs often intercept UDP/TCP port 53 DNS requests. They either return spoofed IP addresses pointing to block portals (DNS hijacking) or drop the requests entirely.
+| Task | Without Vane | With Vane |
+|------|-------------|-----------|
+| Engine startup | Manual CLI with 20+ flags | One click |
+| DNS encryption | Manual DoH/DoT configuration | Built-in DNS Guard |
+| Firewall rules | Manual iptables/WFP setup | Automatic |
+| DNS leak protection | External tools required | Integrated Kill Switch |
+| Preset management | Text files | Visual editor + remote sync |
+| Binary integrity | Not verified | SHA-256 verified at startup |
+| Process cleanup on crash | Manual | Windows Job Object / SIGTERM |
 
 ---
 
-## 3. Zapret Architecture and nfqws/winws Core
+## 2. What is Zapret?
 
-The underlying engine used by Vane is based on zapret. It utilizes:
-- **WinDivert** on Windows: A kernel-level driver that captures, modifies, and injects network packets using user-space filters.
-- **NFQUEUE** on Linux: An iptables/nftables target that forwards packets to user-space queues for manipulation.
+[Zapret](https://github.com/bol-van/zapret) is an open-source DPI bypass library and daemon authored by bol-van. It works by capturing outgoing (and sometimes incoming) TCP/UDP packets, applying configurable manipulations, and re-injecting them into the network stack before they are forwarded by the router or ISP's DPI equipment.
 
-The daemon process receives captured packets, parses their transport and application layers, modifies selected fields based on active filters, and re-injects them into the network stack.
+### Core Daemons
 
----
+| Daemon | Platform | Mechanism | Notes |
+|--------|----------|-----------|-------|
+| `winws` | Windows | WinDivert kernel driver | Requires Administrator privileges |
+| `nfqws` | Linux | NFQUEUE netfilter target | Requires iptables/nftables rules |
+| `tpws` | Linux | SOCKS5 transparent proxy | No kernel modules required |
 
-## 4. Advanced Evasion Techniques and Evasion Mechanics
+### Supported Protocols
 
-This section details the packet-level manipulation methods exposed in Vane's Advanced tab and how they defeat inspection algorithms.
-
-### 4.1. TCP Segmentation and Ordering Options
-
-DPI units rely on high-speed hardware reassembly buffers. If they cannot rebuild the TCP stream, they cannot inspect the payload.
-
-- **multisplit**: Splits the TCP payload at multiple predefined boundary offsets specified in the split position list.
-- **multidisorder**: Splits the payload and sends the resulting segments in reverse order (e.g., segment 2 is sent before segment 1). The target server's OS TCP/IP stack buffers segment 2, receives segment 1, and reassembles them in the correct order for the application layer. The DPI, however, must maintain state tables for out-of-order packets, which is resource-intensive and often bypassed.
-- **fakedsplit**: Performs a single-position split with fake packets interleaved around the segments. It injects decoy data packets before the segments to satisfy the DPI tracking logic. The segments are ordered sequentially.
-- **fakeddisorder**: Similar to fakedsplit but sends the original segments in reverse order.
-- **hostfakesplit**: Specifically designed to hide the hostname. It splits the request around the host header, inserting fake hostnames before and after the real segment.
-
-#### Markers and Split Positions
-Positions for splitting are evaluated dynamically using markers.
-- **method**: Resolves to the start of the HTTP method (GET, POST, etc.).
-- **host**: Resolves to the start of the hostname in HTTP or TLS SNI.
-- **endhost**: Resolves to the byte after the last character of the hostname.
-- **sld**: Resolves to the second-level domain start.
-- **endsld**: Resolves to the byte after the second-level domain.
-- **midsld**: Resolves to the middle of the second-level domain.
-- **sniext**: Resolves to the data field inside the TLS SNI extension.
-
-Example configurations:
-`--dpi-desync-split-pos=method+2,midsld` resolves to method+2 for HTTP, and midsld for TLS connections.
-
-#### Segment Ordering and Altorders
-The parameter `--dpi-desync-fakedsplit-mod=altorder=N` adjusts segment sequencing:
-- **altorder=0**: Fake first segment, real first segment, fake first segment, fake second segment, real second segment, fake second segment.
-- **altorder=1**: Real first segment, fake first segment, fake second segment, real second segment, fake second segment.
-- **altorder=2**: Real first segment, fake second segment, real second segment, fake second segment.
-- **altorder=3**: Real first segment, fake second segment, real second segment.
-- **altorder=8**: Real packet, fake packet.
-- **altorder=16**: Real packet only (fakes are excluded).
-
-### 4.2. Fake Packet Injection and Fooling Modes
-
-Fake packet injection sends a decoy packet containing forbidden keywords (like a fake SNI pointing to a blocked domain) to satisfy the DPI sensor. Once the DPI processes the fake payload, it assumes the session is already blocked or handled and stops tracking it. The client then sends the real packet. To prevent the real server from receiving the fake payload and terminating the connection, we must apply a fooling mode:
-
-- **ttl**: Sets the Time-To-Live (TTL) on the fake packet to a value just low enough that it reaches the ISP's DPI sensor but drops off the network before reaching the destination server. Requires testing the hop distance to avoid server-side connection drops. Note that some stock router firmwares overwrite outgoing TTL fields; this option will not work if TTL locking is active.
-- **badsum**: Generates a fake packet with an incorrect TCP checksum. The destination server's OS discards the packet, but many DPI units ignore checksum validation. Note: This requires setting `net.netfilter.nf_conntrack_checksum=0` on intermediate Linux NAT routers to prevent them from dropping the packet. Default home routers (Linux-based) often drop invalid checksum packets in the FORWARD chain unless conntrack checksumming is explicitly disabled.
-- **badseq**: Uses a sequence number that falls outside the server's active TCP window. The server ignores it as out-of-window noise. The default increment is -10000. If the DPI is stateful and tracks window size, this can be ignored by the DPI as well. For complete assurance, setting the increment to 0x80000000 forces the packet entirely outside the sequence space.
-- **md5sig**: Adds an RFC 2385 MD5 signature option to the TCP header. Most non-Linux servers discard packets with invalid MD5 signatures. This option requires extra space in the TCP header and may trigger MTU overflows during fragmented Kyber ClientHello exchanges.
-- **datanoack**: Sends fake packets with the ACK flag unset. Most destination servers discard packets without ACK flags, while DPIs often parse them anyway. This option may conflict with network address translation (NAT) and masquerade configurations on some routers.
-- **ts**: Appends a spoofed TCP timestamp (TSval) offset, causing the server's Protection Against Wrapped Sequence Numbers (PAWS) mechanism to reject the packet. Requires timestamps to be enabled on the client operating system. For Windows, this is enabled using:
-  `netsh interface tcp set global timestamps=enabled`
-- **autottl**: Dynamically measures the TTL of incoming packets from the server, deduces the hop distance, and automatically calibrates the fake packet's TTL value to ensure it expires before reaching the target. It relies on standard base TTL values (64, 128, 255) to determine the hop distance.
-
-### 4.3. Customizing Fake ClientHello Payloads
-
-Vane supports modifying the raw payloads of injected TLS fakes to prevent fingerprint-based block rules:
-- **rnd**: Randomizes the Random and Session ID fields in the TLS structure on every request.
-- **rndsni**: Randomizes the SNI extension using a random second-level domain name and common top-level domain extension.
-- **dupsid**: Copies the Session ID from the original ClientHello packet to make the fake packet appear as part of the same session.
-- **sni=domain**: Rewrites the SNI extension to point to a permitted domain (e.g., iana.org), adjusting internal length headers automatically.
-- **padencap**: Extends the padding extension inside the fake TLS payload by the size of the original packet, ensuring size signature checks are bypassed.
-
-### 4.4. Sequence Number Overlap (seqovl)
-
-The `seqovl` method modifies TCP sequence numbers to create overlapping data ranges.
-- A fake segment is sent with sequence numbers that overlap with the subsequent real segment.
-- When the destination server reassembles the stream, it prioritizes the real data (which arrives later or overwrites the overlap depending on the OS implementation).
-- The DPI sensor, assuming the first incoming data is final, registers the fake data, resulting in a mismatch between what the DPI inspected and what the server processed. Note: Windows servers do not preserve sequence overlaps in the same manner as Linux/Unix nodes, so seqovl may fail against Windows-hosted sites.
-
-### 4.5. IP ID Assignment Schemes
-
-To bypass stateful inspections that monitor IP packet headers for consistency, Vane allows configuring how IP Identification fields are assigned:
-- **seq**: Increments the IP ID sequentially for each injected packet.
-- **seqgroup**: Matches the IP ID of the fake segment with its corresponding original segment.
-- **rnd**: Assigns random IP IDs to all packets.
-- **zero**: Forces the IP ID field to zero (Linux/BSD hosts).
-
-### 4.6. Handshake Reassembly (Kyber and Fragmented ClientHello)
-
-Modern browsers utilize post-quantum cryptography (such as ML-KEM/Kyber) which increases the size of the TLS ClientHello beyond a single MTU limit (typically 1500 bytes). This splits the SNI across packet boundaries naturally.
-- Stateful DPIs reassemble these packets before inspecting.
-- Vane's backend monitors the incoming stream, detects multi-packet handshakes, waits for all fragments to arrive, and then applies the configured desync strategy across the fully reassembled message block before re-injecting.
-
-### 4.7. UDP Desync and QUIC/VoIP Evasion
-
-QUIC (HTTP/3) operates over UDP port 443. Unlike TCP, UDP does not support stream segmentation.
-- Evasion is performed by injecting fake UDP payloads (using `fake` or `fakeknown` modes), padding lengths (`udplen`), or utilizing IPv6-specific options.
-- The `udplen` parameter increases or decreases the UDP payload length by a set offset, preventing length-based signature matching.
-- VoIP and Discord voice protocols use high range UDP ports (e.g., 50000-65535). Vane provides presets to apply fake injection specifically to these ranges to stabilize connection state.
-
-### 4.8. Server-Side Response Manipulation (wssize)
-
-If the DPI blocks connections based on the server's response (e.g., reading the server's certificate in the `ServerHello`), Vane can limit the TCP Window Size (`--wssize`) advertised to the server during the handshake. This forces the server to fragment its response into small segments, preventing the DPI from reading the certificate in a single packet.
-- wssize specifies the scale factor (e.g., `1:6`).
-- It reduces connection throughput during the initial handshake but bypasses server-side SNI inspectors.
-- Once the initial request is transmitted, Vane's internal connection tracker cuts off window size limitation to restore full download speeds.
-
-### 4.9. Duplicates Injection
-
-The `--dup=N` parameter instructs Vane to inject duplicate copies of original packets prior to sending them.
-- Duplicates can be modified with custom TTLs (`--dup-ttl`) or autottl policies (`--dup-autottl`).
-- By introducing duplicates with anomalies (like MD5 signatures or custom flags), the DPI is forced to process contradictory packets, making it drop session tracking.
-
-### 4.10. Original Packet Modding
-
-Vane can modify the headers of original packets. Using `--orig-ttl` or `--orig-autottl`, you can alter the TTL of real data packets. This obscures the signature of the client operating system and forces the DPI to calculate incorrect hop measurements when comparing original and fake flows.
-
-### 4.11. SYNDATA Mode
-
-Normally, TCP SYN packets contain no payload. SYNDATA mode inserts a data payload (typically 16 null bytes or custom data) inside the SYN packet. While the destination OS ignores the payload unless TCP Fast Open (TFO) is active, the DPI attempt to parse this data, causing its tracking engine to lose synchronization with the actual handshake phase.
-
-### 4.12. IP Cache Management
-
-To apply automated TTL adjustments from the first packet of a session, Vane maintains an internal in-memory IP cache.
-- It maps destination IP addresses and network interfaces to calculated hop distances and hostnames.
-- This allows autottl to function instantly for subsequent connections to the same host.
-- The cache lifetime defaults to 2 hours, customizable via `--ipcache-lifetime`.
-
-### 4.13. Connection Tracking (Conntrack)
-
-Vane contains a lightweight stateful connection tracking module to coordinate multi-packet reassembly and window size adjustments.
-- It monitors the state of TCP connections (SYN, ESTABLISHED, FIN) and UDP flows.
-- It dynamically removes inactive connections after timeouts expire.
-- For diagnostic purposes, sending a `SIGUSR1` signal to the daemon triggers a conntrack table dump to standard output.
+| Protocol | Port | Transport | Bypass Methods |
+|----------|------|-----------|----------------|
+| HTTP | 80 | TCP | Split, disorder, fake |
+| HTTPS (TLS 1.2/1.3) | 443 | TCP | Split, fake, seqovl, wssize |
+| QUIC (HTTP/3) | 443 | UDP | Fake, udplen, fakeknown |
+| VoIP / Discord RTP | 50000-65535 | UDP | Fake, udplen |
+| DoH (DNS-over-HTTPS) | 443 | TCP | Managed by DNS Guard |
 
 ---
 
-## 5. Vane System Features
+## 3. How Deep Packet Inspection (DPI) Works
 
-In addition to wrapping the zapret core, Vane implements several integrated networking services.
+To design effective evasion strategies, it is critical to understand the architecture of the inspection systems deployed by ISPs.
 
-### 5.1. DNS Guard (Local DoH/DoT/DoQ forwarder)
-DNS Guard runs a local resolver on `127.0.0.127:5353`.
-- It converts standard UDP port 53 queries into encrypted DNS-over-HTTPS, DNS-over-TLS, or DNS-over-QUIC requests.
-- It caches resolved records in memory to decrease latency.
-- It filters queries against local blocklists (StevenBlack hosts list) to block advertising, telemetry, and malware domains at the DNS level.
+### 3.1. Passive DPI vs Active DPI
 
-### 5.2. Safety Controls (Kill Switch and Watchdog)
-- **Kill Switch**: Applies native firewall rules (using Windows Filtering Platform or iptables) to block outbound UDP/TCP port 53 traffic, preventing DNS leaks outside the secure tünel.
-- **Watchdog**: Periodically runs ICMP ping or HTTP head requests to specified domains (like `discord.com`). If access is lost, it attempts to recover the connection by restarting the engine or running an optimization scan.
+| Property | Passive DPI | Active DPI |
+|----------|-------------|------------|
+| Placement | Mirror port / optical tap | Inline (in the data path) |
+| Can drop packets | ❌ No | ✅ Yes |
+| Can delay packets | ❌ No | ✅ Yes |
+| Block method | RST injection / HTTP redirect | Drop, TCP reset, proxy intercept |
+| Evasion difficulty | Low to Medium | High |
 
-### 5.3. Upstream Proxy Configuration
-Allows tunneling DNS Guard's outgoing DoH queries through a SOCKS5 proxy, concealing the lookup path from the ISP.
+**Passive DPI** receives a copy of traffic. It races to inject a spoofed TCP RST or HTTP 302 before the server's real response reaches the client. If the fake packet wins the race, the connection is torn down.
 
-### 5.4. Log Output Console with Categorized Badges
-The logs console parses stdout and stderr from the underlying processes and applies colored tags:
-- `[MOTOR]`: Zapret engine status and execution logs (purple).
-- `[DNS]`: DNS Guard queries, caching events, and protocol changes (green).
-- `[ADBLOCK]`: AdBlock list filtering events (red).
-- `[GÜVENLİK]`: Windows elevation state, sanitization, and driver locks (yellow).
-- `[SİSTEM]`: Autostart actions and network change detection (blue).
-- `[HATA]`: Process execution errors and critical failures (red).
-- `[UYARI]`: Non-critical warnings and recovery attempts (amber).
+**Active DPI** sits directly in the transmission path. It acts as a transparent proxy or a stateful packet filter. It can reconstruct TCP streams, apply regex matching on reassembled payloads, and block connections before they complete.
+
+### 3.2. SNI and Hostname Extraction
+
+```
+Client → [TCP SYN] → [TCP SYN-ACK] → [TLS ClientHello]
+                                             ↑
+                              DPI reads SNI extension here
+                              "server_name: blocked.example.com"
+```
+
+| Connection Type | Header Inspected | Location in Packet |
+|----------------|------------------|--------------------|
+| HTTP/1.1 | `Host:` header | Plain text, TCP payload |
+| HTTPS (TLS) | `server_name` SNI extension | ClientHello, plain text before encryption |
+| HTTP/2 over TLS | SNI in ClientHello | Same as HTTPS |
+| QUIC (HTTP/3) | QUIC CRYPTO SNI | First QUIC CRYPTO frame |
+
+### 3.3. Block Injection — RST and HTTP Redirects
+
+When a forbidden domain is identified by the DPI sensor:
+
+1. The sensor generates a **spoofed TCP RST** packet with the server's source IP and port (passive DPI).
+2. For HTTP connections, it may inject a **spoofed HTTP 302 redirect** pointing to an ISP warning page.
+3. The race condition: if the injected RST/redirect arrives at the client **before** the real server response, the OS terminates the socket.
+4. Active DPIs drop the real packet entirely and return their own RST — no race condition needed.
+
+### 3.4. DNS Poisoning and Hijacking
+
+Before a TCP connection can be established, DNS resolution must succeed. ISPs intercept DNS in two common ways:
+
+| Method | Mechanism | Result |
+|--------|-----------|--------|
+| DNS Hijacking | Intercept UDP/53, return fake IP | Client connects to block portal |
+| DNS Poisoning | Inject wrong DNS response in race | Same as hijacking |
+| DNS Blocking | Drop DNS request entirely | Connection times out |
+| Transparent DNS Proxy | Force all DNS through ISP resolver | ISP resolver returns censored answers |
+
+**Vane's DNS Guard** solves all of these by routing DNS through encrypted DoH/DoT/DoQ tunnels.
+
+### 3.5. Deep Fingerprinting and Behavioral Analysis
+
+Advanced DPI systems supplement SNI reading with behavioral fingerprinting:
+
+| Technique | Description | Countermeasure |
+|-----------|-------------|----------------|
+| JA3/JA3S fingerprint | Hash of TLS ClientHello parameters | Modify TLS extension ordering |
+| TCP fingerprinting | OS identification via TCP option ordering | `--dpi-desync-ttl` + split |
+| Flow length analysis | Detect VPN/proxy patterns by packet size | `--udplen`, payload padding |
+| Timing correlation | Match encrypted flows with known patterns | Chaos injection via disorder mode |
 
 ---
 
-## 6. Combining Advanced Parameters (Practical Strategies)
+## 4. Zapret Architecture — nfqws / winws Core
 
-To construct an effective bypass strategy, parameters must be combined based on the inspection type.
+### 4.1. WinDivert (Windows)
 
-### Strategy 1: Standard Split Evasion (Safe, High Compatibility)
-Best for basic DPI setups and older home routers. It does not generate fake packets.
+On Windows, `winws` uses the [WinDivert](https://reqrypt.org/windivert.html) kernel driver. The workflow is:
+
+```
+Application → TCP Stack → WinDivert (kernel driver captures packet)
+                                   ↓
+                         winws.exe (user-space processing)
+                                   ↓
+                         WinDivert re-inject → Router → Internet
+```
+
+WinDivert installs as a Windows kernel driver (`WinDivert64.sys`) with a filter expression that specifies which packets to intercept (e.g., `tcp.DstPort == 443 and outbound`).
+
+### 4.2. NFQUEUE (Linux)
+
+On Linux, `nfqws` uses the kernel's NFQUEUE netfilter target:
+
+```
+Application → TCP Stack → iptables NFQUEUE rule → NFQUEUE (kernel)
+                                                         ↓
+                                             nfqws (user-space processing)
+                                                         ↓
+                                         NF_ACCEPT / NF_DROP → Router → Internet
+```
+
+Traffic is redirected to a user-space queue. nfqws receives each packet, decides to accept (with modifications) or drop it.
+
+### 4.3. Packet Processing Pipeline
+
+```
+Incoming Packet
+      │
+      ├─ Is it TCP? ──→ Parse TCP flags, sequence numbers
+      │                        │
+      │                        ├─ Is it SYN? ──→ SYNDATA mode
+      │                        │
+      │                        ├─ Is it application data? ──→ Parse protocol
+      │                                │
+      │                                ├─ HTTP → Find Host: header
+      │                                ├─ TLS  → Find ClientHello + SNI
+      │                                └─ QUIC → Find CRYPTO SNI
+      │
+      ├─ Is it UDP? ──→ QUIC / VoIP handler
+      │
+      └─ Apply desync strategy → Re-inject modified packets
+```
+
+---
+
+## 5. DPI Desync Strategies
+
+### 5.1. TCP Segmentation Methods
+
+TCP desync works by exploiting the resource constraints of DPI hardware. When a TCP stream is split into unusual fragments or reordered, the DPI's reassembly buffer may fail to process the SNI before the connection is established.
+
+| Method | Description | Complexity | Compatibility |
+|--------|-------------|------------|---------------|
+| `split` | Split TCP payload at one position | Low | Very High |
+| `split2` | Split at two positions | Low | High |
+| `disorder` | Split and send segments in reverse order | Medium | High |
+| `disorder2` | Disorder at two positions | Medium | Medium-High |
+| `fakedsplit` | Split + fake decoy packets around segments | High | High |
+| `fakeddisorder` | Disorder + fake decoy packets | High | Medium-High |
+| `multisplit` | Split at N positions specified in the list | Medium | High |
+| `multidisorder` | Multi-position disorder | High | High |
+| `hostfakesplit` | Split around the hostname field specifically | High | Medium |
+
+**How disorder works:**
+
+```
+Original:    [Seg1: bytes 1-10][Seg2: bytes 11-20][Seg3: bytes 21-30]
+             Contains: "example.com" (blocked SNI)
+
+Disordered:  [Seg2][Seg3][Seg1]
+Server:      Buffers Seg2, Seg3, then receives Seg1 → reassembles correctly
+DPI:         Cannot reassemble → ignores SNI
+```
+
+### 5.2. Split Position Markers
+
+Split positions define where in the packet the TCP payload is divided.
+
+| Marker | Resolves To | Applicable Protocol |
+|--------|-------------|---------------------|
+| `method` | Start of HTTP method (GET, POST…) | HTTP |
+| `host` | Start of hostname field | HTTP, TLS |
+| `endhost` | One byte after the end of hostname | HTTP, TLS |
+| `sld` | Start of second-level domain | HTTP, TLS |
+| `endsld` | One byte after end of SLD | HTTP, TLS |
+| `midsld` | Middle byte of second-level domain | HTTP, TLS |
+| `sniext` | Start of SNI extension data | TLS only |
+| `0`, `1`, `N` | Absolute byte offset from payload start | Any |
+| `method+N` | Method marker + N offset | HTTP |
+| `host-N` | Host marker − N offset | HTTP, TLS |
+
+**Example:**
+```
+--dpi-desync-split-pos=method+2,midsld
+```
+This splits at `method+2` for HTTP requests and at `midsld` for TLS connections.
+
+### 5.3. Fake Packet Injection
+
+Fake packet injection sends a decoy packet crafted to trigger the DPI's block logic. Once the DPI processes the fake payload, it assumes the session has been handled and stops tracking it. The real packet is then sent normally.
+
+```
+Timeline:
+  T=0ms  → Client sends fake packet (contains forbidden SNI)
+             DPI: "Oh, this is blocked.example.com, activating block rule"
+  T=1ms  → Client sends real segmented packets (no complete SNI visible)
+             DPI: "Already handled this session, ignoring"
+  T=2ms  → Server assembles real packets, connection succeeds
+```
+
+**Critical requirement**: The fake packet must not reach the real server (otherwise the server terminates the connection). This is handled by **fooling modes**.
+
+### 5.4. Fooling Modes
+
+Fooling modes are applied to fake packets to prevent them from being accepted by the destination server.
+
+| Mode | Mechanism | Reliability | Notes |
+|------|-----------|-------------|-------|
+| `ttl` | Set TTL low enough to expire before destination | High | Requires hop counting; doesn't work through TTL-rewriting routers |
+| `autottl` | Measure server's incoming TTL, auto-calculate hop distance | Very High | Best default choice; requires server TTL observation |
+| `badsum` | Inject incorrect TCP checksum | High | Some NAT routers may also drop it; requires `nf_conntrack_checksum=0` on Linux NAT |
+| `badseq` | Use sequence number outside server's window | High | Default offset: -10000; use 0x80000000 for max effectiveness |
+| `md5sig` | Add RFC 2385 MD5 option to TCP header | High | Most non-Linux servers reject MD5; may cause MTU issues |
+| `datanoack` | Send fake packet without ACK flag | Medium | May conflict with NAT; servers usually ignore non-ACK packets |
+| `ts` | Spoofed TCP timestamp causing PAWS rejection | Medium | Requires `net.ipv4.tcp_timestamps=1` on client |
+
+**AutoTTL Explained:**
+
+```
+Server sends packet with TTL=119 (started at 128, 9 hops away)
+autottl calculates: 128 - 119 = 9 hops
+Fake packet gets TTL = 9 - delta (expires before destination)
+```
+
+### 5.5. Fake Payload Customization
+
+| Option | Effect |
+|--------|--------|
+| `rnd` | Randomize TLS Random field and Session ID on every request |
+| `rndsni` | Replace SNI extension with random SLD + random TLD |
+| `dupsid` | Copy Session ID from the original ClientHello into the fake packet |
+| `sni=domain` | Replace SNI in fake packet with `domain` (auto-adjusts length headers) |
+| `padencap` | Extend fake padding extension to match the real packet's size |
+| `oob` | Send out-of-band data (TCP Urgent flag) in the fake packet |
+
+### 5.6. Sequence Number Overlap (seqovl)
+
+The `seqovl` technique creates intentional overlapping TCP sequence ranges to confuse stateful DPI engines.
+
+```
+Fake segment:   [seq=100, len=10] → payload: garbage_data
+Real segment:   [seq=105, len=10] → payload: real_sni_data
+
+DPI sees: garbage_data (first received, registered as canonical)
+Server:   May prioritize second-received or later data depending on OS
+```
+
+> ⚠️ Windows-hosted servers generally do not preserve overlaps the same way Linux/BSD servers do. `seqovl` reliability varies against Windows endpoints.
+
+### 5.7. IP ID Assignment Schemes
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `seq` | Increment IP ID for each injected packet | Default |
+| `seqgroup` | Match IP ID of fake segment to its original | Stateful DPI evasion |
+| `rnd` | Random IP ID on each packet | Anti-fingerprinting |
+| `zero` | Force IP ID to 0 | Linux/BSD hosts only |
+
+### 5.8. SYNDATA Mode
+
+Normally, TCP SYN packets carry no payload. SYNDATA inserts data inside the SYN packet.
+
+```
+Standard SYN:  [SYN flag][no data]
+SYNDATA SYN:   [SYN flag][16 null bytes or custom payload]
+```
+
+- The destination OS discards the SYN payload unless **TCP Fast Open (TFO)** is negotiated.
+- The DPI, however, attempts to parse the SYN payload, causing its session state machine to desynchronize from the real handshake.
+
+### 5.9. Original Packet Modding
+
+You can modify TTL and IP ID fields of **real** data packets (not just fakes):
+
+| Parameter | Function |
+|-----------|----------|
+| `--orig-ttl=N` | Set real packet TTL to N |
+| `--orig-autottl` | Auto-calculate TTL for real packet (same logic as fake autottl) |
+
+This forces the DPI to compute incorrect hop distances when comparing the real and fake flows.
+
+### 5.10. Duplicate Packet Injection
+
+`--dup=N` sends N duplicate copies of original packets before the real packet.
+
+| Parameter | Effect |
+|-----------|--------|
+| `--dup=1` | Send 1 duplicate before real packet |
+| `--dup-ttl=N` | Apply TTL N to duplicates |
+| `--dup-autottl` | Auto-calculate TTL for duplicates |
+| `--dup-badseq` | Apply bad sequence number to duplicates |
+
+**Purpose**: Force the DPI to process contradictory copies of the same packet, causing it to drop session tracking.
+
+### 5.11. Server-Side Window Manipulation (wssize)
+
+Normally, the server sends a large TCP response (e.g., a full TLS ServerHello + Certificate chain in a single packet). A DPI can read the certificate to verify the connection.
+
+`wssize` artificially restricts the TCP window advertised to the server during the handshake:
+
+```
+Client → [SYN, Window=65535] → Server
+Client ← [SYN-ACK] ← Server
+Client → [ACK, Window=1] → Server (wssize active)
+Server: "Window is tiny, I'll send only 1 byte at a time"
+DPI: "Cannot read complete ServerHello — giving up inspection"
+```
+
+| Parameter | Description |
+|-----------|-------------|
+| `--wssize=1:6` | Scale factor: restrict window to 1/64 during handshake |
+| `--wssize=0:0` | Maximum restriction |
+
+> Note: Once the initial handshake completes, Vane's conntrack module lifts the window restriction to restore full download speed.
+
+### 5.12. UDP / QUIC Desync
+
+QUIC (HTTP/3) uses UDP and carries the connection's SNI in the first QUIC CRYPTO frame.
+
+| Method | Description |
+|--------|-------------|
+| `fake` | Inject fake QUIC packet with bogus payload before real packet |
+| `fakeknown` | Inject a fake QUIC Initial packet with crafted CRYPTO frame |
+| `udplen=N` | Increase UDP payload length by N bytes (length-signature bypass) |
+| IPv6 extensions | Add IPv6 Hop-by-Hop or Destination extension headers to QUIC packets |
+
+---
+
+## 6. Desync Parameter Reference Table
+
+Full reference for all zapret parameters exposed in Vane's Advanced tab:
+
+| Parameter | Values | Default | Description |
+|-----------|--------|---------|-------------|
+| `--dpi-desync` | `split`,`split2`,`disorder`,`disorder2`,`fake`,`multisplit`,`multidisorder`... | — | Primary desync method(s), comma-separated |
+| `--dpi-desync2` | Same as above | — | Secondary desync method for established connections |
+| `--dpi-desync-split-pos` | Marker or integer list | `2` | Split position(s) |
+| `--dpi-desync-split-http-req` | `none`,`method`,`host` | `none` | Specific HTTP request split position |
+| `--dpi-desync-split-pos-http-req` | Integer | — | Byte offset for HTTP request split |
+| `--dpi-desync-split-tls` | `none`,`sni`,`snh` | `none` | Specific TLS split position |
+| `--dpi-desync-split-pos-tls` | Integer | — | Byte offset for TLS split |
+| `--dpi-desync-fooling` | `badsum`,`badseq`,`md5sig`,`ts`,`datanoack`,`hopbyhop`,`destopt` | — | Fake packet fooling mode(s) |
+| `--dpi-desync-autottl` | `[-]N:N-N` | — | Auto-calculate TTL bounds |
+| `--dpi-desync-ttl` | Integer | — | Fixed TTL for fake packets |
+| `--dpi-desync-ttl-ext` | Integer | — | Additional TTL offset |
+| `--dpi-desync-repeats` | Integer | `1` | Number of fake packets per real packet |
+| `--dpi-desync-any-protocol` | Flag | Off | Apply desync to all TCP connections (not just HTTP/TLS) |
+| `--dpi-desync-cutoff` | `d1`-`d9`, `s1`-`sN` | — | Apply desync only to first N data/SYN packets |
+| `--dpi-desync-fake-tls-sni` | domain | — | Custom SNI in fake TLS ClientHello |
+| `--dpi-desync-fake-http` | string or file path | — | Custom HTTP payload for fake packets |
+| `--dpi-desync-fake-tls` | string or file path | — | Custom TLS ClientHello payload |
+| `--dpi-desync-fake-quic` | string or file path | — | Custom QUIC payload |
+| `--dpi-desync-http` | same as `--dpi-desync` | — | Override method for HTTP connections |
+| `--dpi-desync-https` | same as `--dpi-desync` | — | Override method for HTTPS/TLS connections |
+| `--dpi-desync-quic` | same as `--dpi-desync` | — | Override method for QUIC/UDP connections |
+| `--mss` | Integer | — | TCP Maximum Segment Size override |
+| `--tcp-window-size` | Integer | — | TCP Window Size for sent packets |
+| `--wssize` | `N:N` | — | Window scale factor advertised to server |
+| `--wf-tcp` | port list | — | TCP ports to intercept |
+| `--wf-udp` | port list | — | UDP ports to intercept |
+| `--ipset` | file path | — | IP allowlist/blocklist file |
+| `--bind-addr` | IP address | — | Bind to specific network interface |
+| `--ipcache-lifetime` | Seconds | 7200 | IP cache entry TTL |
+| `--dup` | Integer | — | Number of duplicate packets per original |
+
+---
+
+## 7. Fragmented Handshake and Kyber Support
+
+Modern browsers (Chrome 124+, Firefox 126+) use **ML-KEM (Kyber)** for post-quantum key encapsulation. This increases the TLS ClientHello size dramatically:
+
+| ClientHello Type | Typical Size | Fits in One Packet? |
+|-----------------|-------------|---------------------|
+| Classic TLS 1.3 | ~300 bytes | ✅ Yes (MTU ~1500 bytes) |
+| TLS 1.3 + Kyber768 | ~1500-2000 bytes | ❌ No, split across 2+ packets |
+
+**How Vane handles this:**
+
+1. Captures the first TCP segment of the handshake.
+2. Detects multi-packet ClientHello by checking `handshake_length > (packet_size - headers)`.
+3. Buffers all fragments until the full ClientHello is received.
+4. Applies the configured desync strategy across the reassembled message.
+5. Re-injects modified segments in the correct order.
+
+This ensures Kyber-extended ClientHello SNI is properly hidden even when the SNI spans packet boundaries.
+
+---
+
+## 8. Connection Tracking (Conntrack)
+
+Vane's internal conntrack module tracks live TCP and UDP sessions to enable multi-packet operations like wssize and fragmented handshake support.
+
+| Feature | Details |
+|---------|---------|
+| TCP state tracking | SYN → ESTABLISHED → FIN / RST |
+| UDP flow tracking | Source IP/port + Destination IP/port keyed |
+| Inactive timeout | Configurable; default: 60s (UDP), 120s (TCP established) |
+| Max table size | Bounded to prevent memory exhaustion |
+| Diagnostic dump | Send `SIGUSR1` to daemon process to print conntrack table |
+
+---
+
+## 9. IP Cache Management
+
+The IP cache stores previously computed hop distances for destination IPs, enabling instant autottl calibration from the very first packet of a new session.
+
+| Property | Value |
+|----------|-------|
+| Cache key | Destination IP + network interface |
+| Cache value | Observed TTL, computed hop distance, hostname |
+| Default lifetime | 7200 seconds (2 hours) |
+| Override | `--ipcache-lifetime=N` |
+| Eviction policy | LRU; oldest entries evicted when capacity is exceeded |
+
+---
+
+## 10. Vane System Features
+
+### 10.1. DNS Guard — Local DoH / DoT / DoQ Forwarder
+
+DNS Guard runs a local resolver on `127.0.0.127:5353`. It intercepts standard UDP/53 DNS queries and forwards them over encrypted channels.
+
+| Provider | Protocol | Endpoint |
+|----------|----------|----------|
+| Cloudflare | DoH | `https://cloudflare-dns.com/dns-query` |
+| Google | DoH | `https://dns.google/dns-query` |
+| AdGuard | DoH | `https://dns.adguard.com/dns-query` |
+| NextDNS | DoH | Custom via configuration |
+| Custom | DoH | User-defined URL |
+
+**Feature Summary:**
+
+| Feature | Status |
+|---------|--------|
+| DNS-over-HTTPS | ✅ |
+| DNS-over-TLS | ✅ |
+| DNS-over-QUIC | ✅ |
+| In-memory DNS cache | ✅ |
+| Cache TTL respect | ✅ |
+| Local domain fallback (`.local`, `.lan`) | ✅ |
+| Concurrency limit (100 parallel requests) | ✅ |
+| SOCKS5 proxy for DoH queries | ✅ |
+
+### 10.2. AdBlock DNS Filtering
+
+DNS Guard integrates the [StevenBlack hosts list](https://github.com/StevenBlack/hosts) (~100,000+ domains) for DNS-level blocking.
+
+| Category | Blocked |
+|----------|---------|
+| Advertising networks | ✅ |
+| Telemetry and analytics | ✅ |
+| Malware / phishing domains | ✅ |
+| Social media trackers | Optional |
+
+When a blocked domain is queried, DNS Guard returns `0.0.0.0` (NXDOMAIN-equivalent) instead of forwarding the query.
+
+### 10.3. Kill Switch — DNS Leak Protection
+
+The Kill Switch blocks outbound UDP/TCP port 53 traffic using native OS APIs:
+
+| OS | Mechanism |
+|----|-----------|
+| Windows | Windows Filtering Platform (WFP) callout driver |
+| Linux | iptables OUTPUT chain rule |
+
+When enabled, all DNS queries outside the encrypted DNS Guard tunnel are silently dropped. This prevents ISP-level DNS interception regardless of application configuration.
+
+### 10.4. Auto-Recovery Watchdog
+
+The Watchdog continuously monitors connectivity to configurable target domains (default: `discord.com`).
+
+| Trigger Condition | Action |
+|-------------------|--------|
+| HTTP HEAD request fails | Run preset optimizer |
+| Optimizer finds better preset | Switch to optimal preset |
+| ICMP ping timeout | Log warning + retry |
+| Engine process crash | Restart engine with same preset |
+
+### 10.5. Preset Optimizer
+
+The Optimizer tests all available presets against live connectivity targets to find the most effective configuration for the current network.
+
+**Process:**
+1. Stop current engine session.
+2. Iterate through all presets in priority order.
+3. For each preset, start the engine and run an HTTP HEAD probe to the test target.
+4. Select the first preset that returns HTTP < 400.
+5. Switch to the winning preset and resume normal operation.
+
+### 10.6. SOCKS5 Upstream Proxy
+
+Allows tunneling DNS Guard's outgoing DoH queries through a SOCKS5 proxy:
+
+```
+DNS Query → DNS Guard → SOCKS5 Proxy → Internet → DoH Server
+```
+
+This conceals the encrypted DNS lookup path from the ISP, useful in environments where DoH endpoints are also blocked.
+
+### 10.7. Remote Preset Sync
+
+Vane can fetch preset definitions from a remote JSON endpoint (GitHub Gist or CDN). The remote presets:
+
+- Are loaded at startup if a cached copy exists (zero network I/O).
+- Are refreshed in the background after startup (non-blocking).
+- Are verified with Minisign cryptographic signatures to prevent tampering.
+- Cannot overwrite built-in presets (ID collision protection).
+
+### 10.8. Log Console with Tagged Output
+
+Vane parses all process stdout/stderr and classifies lines into tagged categories:
+
+| Tag | Color | Source |
+|-----|-------|--------|
+| `[MOTOR]` | Purple | Zapret engine process |
+| `[DNS]` | Green | DNS Guard forwarder |
+| `[ADBLOCK]` | Red | DNS filtering events |
+| `[GÜVENLİK]` | Yellow | Privilege checks, sanitization |
+| `[SİSTEM]` | Blue | Autostart, network changes |
+| `[HATA]` | Red | Process errors, critical failures |
+| `[UYARI]` | Amber | Non-critical warnings |
+
+### 10.9. Auto-Start and Tray Integration
+
+When auto-start is enabled, Vane registers a Windows Task Scheduler entry (`--autostart` flag). On startup:
+
+1. Reads the last active preset ID from the persisted settings file.
+2. Checks if the system DNS is trusted; applies Cloudflare DNS if not.
+3. Silently starts the engine with the saved preset.
+4. Hides the main window; shows the system tray icon.
+
+### 10.10. Network Change Detection
+
+Vane listens for `WM_DEVICECHANGE` (Windows) or netlink socket events (Linux) to detect network adapter changes.
+
+- When a new adapter is connected, a `network_changed` event is emitted.
+- The frontend UI refreshes DNS adapter status and network statistics.
+- WinDivert automatically applies its capture filters to new adapters — no engine restart required.
+
+---
+
+## 11. Built-in Presets
+
+| ID | Label | Strategy | Target |
+|----|-------|----------|--------|
+| `tr-1` | TR Standard | `fake,multidisorder` + `autottl` + `badseq` | Turkey ISPs |
+| `tr-2` | TR Aggressive | `fake,multidisorder` + `md5sig` + fixed TTL | Strict Turkey ISPs |
+| `tr-3` | TR Fragment | `multisplit` + `fakedsplit` | Fragment-based bypass |
+| `tr-4` | TR Desync-HTTPS | HTTPS-specific desync with custom split | HTTPS-only inspection |
+| `tr-5` | TR QUIC | UDP 443 + `fakeknown` | YouTube QUIC streams |
+| `discord-voip` | Discord & VoIP Fix | UDP 50000-65535 fake injection | Voice chat stability |
+
+---
+
+## 12. Advanced Configuration — Full Parameter Table
+
+The following parameters are exposed in Vane's Advanced Settings tab:
+
+### DPI Desync
+
+| Setting | Parameter | Values | Description |
+|---------|-----------|--------|-------------|
+| Desync Method | `--dpi-desync` | `split`, `disorder`, `fake`, `multisplit`, `multidisorder`... | Primary bypass method |
+| Secondary Method | `--dpi-desync2` | Same as above | Applied after first method |
+| Split Position | `--dpi-desync-split-pos` | Marker or integer list | Where to cut the TCP payload |
+| HTTP Split Target | `--dpi-desync-split-http-req` | `none`, `method`, `host` | HTTP-specific split anchor |
+| TLS Split Target | `--dpi-desync-split-tls` | `none`, `sni`, `snh` | TLS-specific split anchor |
+| Fooling Mode | `--dpi-desync-fooling` | `badsum`, `badseq`, `md5sig`, `ts`, `datanoack`... | Prevent fake reaching server |
+| Auto TTL | `--dpi-desync-autottl` | `[-]N:N-N` | Dynamically calibrate TTL |
+| Fixed TTL | `--dpi-desync-ttl` | Integer | Fixed fake TTL value |
+| Extended TTL | `--dpi-desync-ttl-ext` | Integer | Offset added to TTL |
+| Fake Repeats | `--dpi-desync-repeats` | Integer | Number of fake packets |
+| Any Protocol | `--dpi-desync-any-protocol` | Flag | Apply to all TCP, not just HTTP/TLS |
+| Cutoff | `--dpi-desync-cutoff` | `d1`-`d9`, `s1`-`sN` | Limit desync to first N packets |
+
+### Per-Protocol Override
+
+| Setting | Parameter | Description |
+|---------|-----------|-------------|
+| HTTP Method | `--dpi-desync-http` | Override desync for HTTP traffic only |
+| HTTPS Method | `--dpi-desync-https` | Override desync for HTTPS/TLS traffic only |
+| QUIC Method | `--dpi-desync-quic` | Override desync for QUIC/UDP traffic only |
+
+### Fake Payload
+
+| Setting | Parameter | Description |
+|---------|-----------|-------------|
+| Custom TLS SNI | `--dpi-desync-fake-tls-sni` | Domain name for fake TLS ClientHello SNI |
+| Fake HTTP Payload | `--dpi-desync-fake-http` | String or path to file for HTTP fakes |
+| Fake TLS Payload | `--dpi-desync-fake-tls` | String or path to file for TLS fakes |
+| Fake QUIC Payload | `--dpi-desync-fake-quic` | String or path to file for QUIC fakes |
+
+### Packet & Traffic
+
+| Setting | Parameter | Description |
+|---------|-----------|-------------|
+| MSS Override | `--mss` | TCP Maximum Segment Size |
+| TCP Window Size | `--tcp-window-size` | Override TCP window in sent packets |
+| Server Window Scale | `--wssize` | Restrict window advertised to server |
+
+### Protocol & Ports
+
+| Setting | Parameter | Example | Description |
+|---------|-----------|---------|-------------|
+| TCP Ports | `--wf-tcp` | `80,443` | TCP ports to capture |
+| UDP Ports | `--wf-udp` | `443` | UDP ports to capture |
+| QUIC UDP | `--wf-udp=443` | Flag | Enable QUIC bypass |
+
+### System
+
+| Setting | Parameter | Description |
+|---------|-----------|-------------|
+| IP List | `--ipset` | Path to file with target IP ranges |
+| Bind Interface | `--bind-addr` | Bind engine to specific network interface IP |
+| TPWS Mode | `--tpws` | Use SOCKS5 transparent proxy mode instead of nfqws |
+
+---
+
+## 13. Practical Bypass Strategies
+
+### Strategy 1: Basic Split (Safe, Maximum Compatibility)
+
+Best for passive DPI and home routers. No fake packets.
+
 ```
 --wf-tcp=80,443 --dpi-desync=split --dpi-desync-split-pos=2
 ```
-*Mechanism*: Splits all HTTP and TLS handshakes at byte offset 2.
 
-### Strategy 2: Autottl with Fake Packet Injection (Aggressive, ISP Evasion)
-Used when the ISP blocks SNI string matches and accepts fake packets.
-```
---wf-tcp=80,443 --dpi-desync=fake,multidisorder --dpi-desync-autottl=-1:3-20 --dpi-desync-fooling=badseq --dpi-desync-any-protocol
-```
-*Mechanism*:
-1. Observes the server's TTL.
-2. Injects a fake packet with calculated TTL and a bad sequence number.
-3. Sends the remaining original segments in reverse order.
+### Strategy 2: AutoTTL Fake + Disorder (Default — Turkey)
 
-### Strategy 3: Turkey ISP Bypass (TR 1 Default Preset)
-Specifically optimized for restrictive networks in Turkey.
 ```
---wf-tcp=80,443 --wf-udp=443 --dpi-desync=split --dpi-desync-any-protocol --dpi-desync-cutoff=d3 --dpi-desync-split-pos=4 --dpi-desync-fooling=md5sig --dpi-desync-autottl
+--wf-tcp=80,443 --wf-udp=443 --dpi-desync=fake,multidisorder
+--dpi-desync-autottl=-1:3-20 --dpi-desync-fooling=badseq
+--dpi-desync-any-protocol --dpi-desync-cutoff=d3
 ```
-*Mechanism*:
-- Targets both TCP (web browsing) and UDP (QUIC/HTTP3).
-- Uses split desync with absolute split position 4.
-- Adds MD5 signature option to protect against fake processing.
-- Automatically calculates TTL bounds to restrict packet propagation.
+
+**Mechanism:**
+1. Measures server TTL to calibrate autottl.
+2. Sends fake packet with calibrated TTL and bad sequence number.
+3. Sends remaining real segments in disorder order.
+4. Applied only to first 3 data packets per session (`cutoff=d3`).
+
+### Strategy 3: MD5 Signature + Split (Heavy ISP Evasion)
+
+```
+--wf-tcp=80,443 --wf-udp=443 --dpi-desync=fake,multidisorder
+--dpi-desync-fooling=md5sig --dpi-desync-autottl
+--dpi-desync-split-pos=4 --dpi-desync-any-protocol
+```
+
+### Strategy 4: QUIC + VoIP Bypass
+
+```
+--wf-udp=443,50000-65535 --dpi-desync=fake --dpi-desync-repeats=2
+--dpi-desync-fooling=badseq --dpi-desync-any-protocol
+```
+
+### Strategy 5: wssize (Server-Side Certificate Hiding)
+
+```
+--wf-tcp=443 --wssize=1:6 --dpi-desync=split --dpi-desync-split-pos=2
+```
+
+### Strategy 6: Fragment Method
+
+```
+--wf-tcp=80,443 --dpi-desync=multisplit,fakedsplit
+--dpi-desync-split-pos=2,4 --dpi-desync-fooling=badseq
+```
 
 ---
 
-## 7. Firewall and Linux Integration (Iptables/Nftables)
+## 14. Firewall Setup — Linux (Iptables / Nftables)
 
-When running on Linux, `nfqws` requires redirecting traffic to the user-space NFQUEUE target.
+### Iptables
 
-### Iptables Setup Example
 ```bash
-# Redirect outgoing HTTP and HTTPS traffic to nfqws queue 1
-iptables -A OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 1 --queue-bypass
+# Outgoing TCP (HTTP + HTTPS)
+iptables -A OUTPUT -p tcp -m multiport --dports 80,443 \
+  -j NFQUEUE --queue-num 200 --queue-bypass
 
-# Redirect incoming traffic (required for autottl calculations)
-iptables -A INPUT -p tcp -m multiport --sports 80,443 -j NFQUEUE --queue-num 1 --queue-bypass
+# Incoming TCP (required for autottl to observe server TTL)
+iptables -A INPUT -p tcp -m multiport --sports 80,443 \
+  -j NFQUEUE --queue-num 200 --queue-bypass
+
+# Outgoing QUIC (HTTP/3)
+iptables -A OUTPUT -p udp --dport 443 \
+  -j NFQUEUE --queue-num 200 --queue-bypass
 ```
 
-### Nftables Setup Example
+### Nftables
+
 ```nftables
-table inet vane_filter {
-    chain bypass_out {
-        type filter hook output priority filter; policy accept;
-        tcp dport { 80, 443 } queue num 1 bypass
+table ip vane_mangle {
+    chain output {
+        type filter hook output priority mangle; policy accept;
+        tcp dport { 80, 443 } queue num 200
+        udp dport 443 queue num 200
     }
-    chain bypass_in {
-        type filter hook input priority filter; policy accept;
-        tcp sport { 80, 443 } queue num 1 bypass
+    chain input {
+        type filter hook input priority mangle; policy accept;
+        tcp sport { 80, 443 } queue num 200
     }
 }
 ```
 
----
+> Vane on Linux handles these rules automatically when the engine is started.
 
-## 8. Limitations and When Evasion Fails
+### Cleanup (on engine stop)
 
-Packet-level manipulation is not a universal solution:
-1. **IP Blocking**: If the target server's IP address is blocked at the routing layer, modifying the payload will not help. A VPN or proxy is required.
-2. **Active TCP Reconstruction**: If the ISP routes traffic through a transparent proxy that fully terminates and rebuilds TCP connections, Vane's modified packets will be absorbed by the proxy.
-3. **Active Probing**: Some firewalls perform active probing, sending probe packets back to the client to verify if the connection is legitimate.
-
----
-
-## 9. Codebase Architecture and Development Guide
-
-Vane's codebase is split into Rust (backend) and React/TypeScript (frontend).
-
-```
-src/                        React frontend (components, stores, styles)
-src-tauri/
-  src/
-    engine/                 Process management, logger, argument sanitizer
-    dns/                    Local forwarder, caching, AdGuard filtering
-    presets/                Sync and Minisign signature checks
-    logging.rs              Tracing subscriber with tag classification
-    commands.rs             Tauri API commands exposed to frontend
+```bash
+nft delete table ip vane_mangle
+# or
+iptables -D OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 200
 ```
 
-### Argument Sanitizer
-To prevent command injection, `src-tauri/src/engine/sanitizer.rs` validates all arguments against a strict whitelist before launching the process. Any argument or character not present in the whitelist is rejected.
+---
+
+## 15. Security Architecture
+
+Vane implements multiple layers of security controls:
+
+| Control | Mechanism | Location |
+|---------|-----------|----------|
+| IPC whitelist | All Tauri commands validate URL schemes and preset IDs | `commands.rs` |
+| Argument sanitization | Strict whitelist — only known zapret parameters accepted | `sanitizer.rs` |
+| Shell injection prevention | Single-quote escaping of all arguments in Linux root wrapper | `manager.rs` |
+| Binary integrity | SHA-256 verification of `winws.exe` / `nfqws` before execution | `manager.rs` |
+| Process isolation | Windows Job Object with `KILL_ON_JOB_CLOSE` | `job.rs` |
+| Capabilities restriction | No `fs:write`, `fs:read`, or `shell:execute` in WebView | `capabilities/default.json` |
+| Content Security Policy | `script-src 'self'` — no external scripts | `tauri.conf.json` |
+| Updater signature | Minisign signature verification before install | `updater.rs` |
+| Preset ID validation | Alphanumeric + `-` + `_` only, max length enforced | `loader.rs` |
+| DNS leak prevention | Kill Switch blocks outbound UDP/TCP 53 | `dns/mod.rs` |
 
 ---
 
-## 10. Troubleshooting and Diagnostics
+## 16. Installation
 
-- **WinDivert driver fail**: Ensure no other DPI bypass tools (such as GoodbyeDPI) are running.
-- **DNS Leak detected**: Ensure the Kill Switch is enabled in the Safety & Proxy tab.
-- **Log shows [HATA]**: Check if Vane is running with Administrator privileges.
+### Windows
+
+1. Download the latest `.msi` installer from [Releases](https://github.com/luluwux/Vane/releases).
+2. Run the installer as Administrator.
+3. Launch Vane from the Start Menu.
+
+> Vane requires Administrator privileges to load the WinDivert kernel driver.
+
+### Linux
+
+1. Download the `.deb` (Debian/Ubuntu) or `.AppImage` from [Releases](https://github.com/luluwux/Vane/releases).
+2. Install with `sudo dpkg -i vane_*.deb` or `chmod +x Vane_*.AppImage && ./Vane_*.AppImage`.
+3. Launch Vane; it will request `pkexec` (PolicyKit) root elevation on engine start.
 
 ---
 
-## 11. Credits and License
+## 17. Building from Source
 
-- **zapret** by bol-van: The underlying bypass engine.
-- **Tauri**: The application framework.
-- **Minisign**: Cryptographic signature verification.
+### Requirements
 
-Licensed under the MIT License.
+| Tool | Version |
+|------|---------|
+| Node.js | LTS (20+) |
+| npm | 10+ |
+| Rust | Stable (2021 edition) |
+| Tauri CLI | v2 |
+
+### Build Steps
+
+```bash
+# Clone the repository
+git clone https://github.com/luluwux/Vane.git
+cd Vane
+
+# Install frontend dependencies
+npm install
+
+# Development mode (hot reload)
+npm run tauri dev
+
+# Production build
+npm run tauri build
+```
+
+### Backend Tests
+
+```bash
+cd src-tauri
+cargo test
+cargo clippy
+```
+
+---
+
+## 18. Troubleshooting
+
+| Problem | Possible Cause | Solution |
+|---------|---------------|----------|
+| Engine fails to start | WinDivert driver conflict | Close other DPI tools (GoodbyeDPI, etc.) |
+| DNS leak detected | Kill Switch disabled | Enable Kill Switch in DNS tab |
+| `[HATA]` in logs | Not running as Administrator | Restart Vane as Administrator |
+| High latency after enabling | wssize active on all connections | Disable wssize or limit to specific ports |
+| QUIC streams still blocked | QUIC bypass not enabled | Enable UDP 443 in Advanced tab |
+| Engine starts then immediately stops | Binary hash mismatch | Re-download Vane installer |
+| Remote presets not loading | Firewall blocking GitHub CDN | Check network or disable preset sync |
+
+---
+
+## 19. Limitations and When Evasion Fails
+
+Packet-level manipulation is not a universal solution. The following scenarios cannot be addressed by Vane:
+
+| Scenario | Reason | Alternative |
+|----------|--------|-------------|
+| IP-level block | Target IP is blocked at routing layer | VPN or proxy |
+| Transparent TCP proxy | ISP fully terminates and rebuilds TCP — Vane's modified packets are absorbed | VPN |
+| Active probing | ISP sends probes to verify connection legitimacy | VPN with probe resistance |
+| TLS 1.2 fingerprinting | Static cipher suite orders are detected | Update client OS / TLS library |
+| MITM certificate inspection | ISP installs own CA in OS trust store | Remove untrusted CAs from OS |
+| Full blocking (no connection at all) | TCP SYN is dropped at routing level | VPN |
+
+---
+
+## 20. Credits and License
+
+- **[zapret](https://github.com/bol-van/zapret)** by bol-van — The underlying DPI bypass engine (nfqws / winws).
+- **[WinDivert](https://reqrypt.org/windivert.html)** by basil00 — Windows kernel packet capture driver.
+- **[Tauri](https://tauri.app)** — Secure desktop application framework.
+- **[Minisign](https://jedisct1.github.io/minisign/)** — Cryptographic signature verification.
+- **[StevenBlack/hosts](https://github.com/StevenBlack/hosts)** — AdBlock hosts list.
+
+Licensed under the **GPL-3.0 License** — see [LICENSE](LICENSE) for details.
+
+---
+
+## 21. Community
+
+| Channel | Link |
+|---------|------|
+| 🐛 Bug Reports | [GitHub Issues](https://github.com/luluwux/Vane/issues) |
+| 💡 Feature Requests | [GitHub Issues](https://github.com/luluwux/Vane/issues) |
+| 💬 Discord (Personal) | [luppux](https://discord.com/users/852103749228036136) |
+| 💬 Discord (Community) | [discord.gg/luppux](https://discord.gg/luppux) |
+| 📧 Security Reports | alp@archey.com.tr |
+| 📋 Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| 🔒 Security Policy | [SECURITY.md](SECURITY.md) |
+| 📝 Changelog | [CHANGELOG.md](CHANGELOG.md) |

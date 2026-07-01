@@ -138,6 +138,18 @@ async fn autostart_engine_with_last_preset(app: AppHandle) {
         loader.find_preset(&preset_id)
     };
 
+    // Apply automatic DNS configuration check if not already using a trusted DNS
+    let dns_ok = crate::dns::is_using_trusted_dns();
+    if !dns_ok {
+        let result = crate::dns::apply_dns("1.1.1.1", "1.0.0.1");
+        if result.success {
+            tracing::info!("DNS Guard: Cloudflare automatically applied during autostart.");
+            let _ = app.emit("dns_auto_applied", "Cloudflare DNS (1.1.1.1) automatically applied.");
+        } else {
+            tracing::warn!("DNS Guard: Cloudflare could not be applied during autostart — {:?}", result.error);
+        }
+    }
+
     match preset {
         Some(p) => {
             tracing::info!("Auto-start: '{}' preset'i otomatik devreye alınıyor.", p.label);
@@ -380,6 +392,7 @@ pub fn run() {
             // Utility
             commands::open_url,
             commands::get_geoip_data,
+            commands::get_network_stats,
         ]);
 
     let app = builder

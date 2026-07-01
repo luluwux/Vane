@@ -1,15 +1,22 @@
 import { invoke } from '@tauri-apps/api/core';
 import { MessageSquare, Server, Code, ExternalLink } from 'lucide-react';
+import { useEngineStore } from '../store/engineStore';
 import styles from './FeedbackView.module.css';
 
 const openUrl = (url: string) => invoke('open_url', { url });
 
 export function FeedbackView() {
+  const { language } = useEngineStore();
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h2 className={styles.title}>Feedback & Community</h2>
-        <p className={styles.subtitle}>Join our community, report bugs, or request new features.</p>
+        <h2 className={styles.title}>
+          {language === 'tr' ? 'Geri Bildirim & Topluluk' : 'Feedback & Community'}
+        </h2>
+        <p className={styles.subtitle}>
+          {language === 'tr' ? 'Topluluğumuza katılın, hata bildirin veya yeni özellikler talep edin.' : 'Join our community, report bugs, or request new features.'}
+        </p>
       </header>
 
       <div className={styles.grid}>
@@ -20,7 +27,7 @@ export function FeedbackView() {
               <MessageSquare size={20} />
             </div>
             <div>
-              <h3 className={styles.cardTitle}>Developer</h3>
+              <h3 className={styles.cardTitle}>{language === 'tr' ? 'Geliştirici' : 'Developer'}</h3>
               <p className={styles.cardSubtitle}>@Lulushu</p>
             </div>
           </div>
@@ -28,7 +35,7 @@ export function FeedbackView() {
             className={`${styles.actionBtn} ${styles.discordBtn}`}
             onClick={() => openUrl('https://discord.com/users/852103749228036136')}
           >
-            <ExternalLink size={14} /> Send a Message
+            <ExternalLink size={14} /> {language === 'tr' ? 'Mesaj Gönder' : 'Send a Message'}
           </button>
         </div>
 
@@ -39,15 +46,15 @@ export function FeedbackView() {
               <Server size={20} />
             </div>
             <div>
-              <h3 className={styles.cardTitle}>Discord Community</h3>
-              <p className={styles.cardSubtitle}>Vane DPI Official Server</p>
+              <h3 className={styles.cardTitle}>{language === 'tr' ? 'Discord Topluluğu' : 'Discord Community'}</h3>
+              <p className={styles.cardSubtitle}>{language === 'tr' ? 'Vane DPI Resmi Sunucusu' : 'Vane DPI Official Server'}</p>
             </div>
           </div>
           <button
             className={`${styles.actionBtn} ${styles.serverBtn}`}
             onClick={() => openUrl('https://discord.gg/luppux')}
           >
-            <ExternalLink size={14} /> Join Server
+            <ExternalLink size={14} /> {language === 'tr' ? 'Sunucuya Katıl' : 'Join Server'}
           </button>
         </div>
 
@@ -58,15 +65,15 @@ export function FeedbackView() {
               <Code size={20} />
             </div>
             <div>
-              <h3 className={styles.cardTitle}>GitHub Repository</h3>
-              <p className={styles.cardSubtitle}>Star the project & report issues</p>
+              <h3 className={styles.cardTitle}>{language === 'tr' ? 'GitHub Deposu' : 'GitHub Repository'}</h3>
+              <p className={styles.cardSubtitle}>{language === 'tr' ? 'Projeyi yıldızlayın & hata bildirin' : 'Star the project & report issues'}</p>
             </div>
           </div>
           <button
             className={styles.actionBtn}
             onClick={() => openUrl('https://github.com/luluwux/Vane')}
           >
-            <ExternalLink size={14} /> View Repository
+            <ExternalLink size={14} /> {language === 'tr' ? 'Depoyu Görüntüle' : 'View Repository'}
           </button>
         </div>
       </div>

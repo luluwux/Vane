@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useEngineStore } from '../store/engineStore';
 import { ShieldAlert, EyeOff, Network, Save } from 'lucide-react';
 import { Toast } from '../components/Toast/Toast';
+import { translations } from '../utils/translations';
 import styles from './SafetyProxyView.module.css';
 
 export function SafetyProxyView() {
@@ -13,7 +14,10 @@ export function SafetyProxyView() {
     setWatchdog,
     setProxySocks5,
     status,
+    language,
   } = useEngineStore();
+
+  const t = translations[language];
 
   const [localKillSwitch, setLocalKillSwitch] = useState(killSwitch);
   const [localWatchdog, setLocalWatchdog] = useState(watchdog);
@@ -38,14 +42,14 @@ export function SafetyProxyView() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h2 className={styles.title}>Safety & Proxy</h2>
+        <h2 className={styles.title}>{t.safety}</h2>
         <p className={styles.subtitle}>
-          Firewall protection, DNS leak prevention, auto-recovery, and SOCKS5 proxy routing.
+          {language === 'tr' ? 'Güvenlik duvarı koruması, DNS sızıntı koruması, otomatik kurtarma ve SOCKS5 proxy yönlendirme.' : 'Firewall protection, DNS leak prevention, auto-recovery, and SOCKS5 proxy routing.'}
         </p>
       </header>
 
       <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>Privacy & Security</h3>
+        <h3 className={styles.sectionTitle}>{t.privacySecurity}</h3>
 
         {/* Kill Switch Card */}
         <div className={styles.card}>
@@ -54,8 +58,8 @@ export function SafetyProxyView() {
               <ShieldAlert size={20} />
             </div>
             <div className={styles.cardTitleInfo}>
-              <span className={styles.cardTitle}>DNS Leak Protection (Kill Switch)</span>
-              <span className={styles.cardDesc}>Block unencrypted outbound DNS port 53 traffic</span>
+              <span className={styles.cardTitle}>{t.dnsLeakProtection}</span>
+              <span className={styles.cardDesc}>{t.dnsLeakProtectionDesc}</span>
             </div>
             <div className={styles.toggleWrapper}>
               <input
@@ -69,7 +73,7 @@ export function SafetyProxyView() {
             </div>
           </div>
           <p className={styles.detailedDesc}>
-            Blocks standard DNS queries (UDP/TCP Port 53) to the internet, enforcing all DNS traffic through Vane DoH/DoT loopback. Prevents your ISP from detecting the web domains you query.
+            {t.dnsLeakProtectionDetailed}
           </p>
         </div>
 
@@ -80,8 +84,8 @@ export function SafetyProxyView() {
               <EyeOff size={20} />
             </div>
             <div className={styles.cardTitleInfo}>
-              <span className={styles.cardTitle}>Auto-Recovery Gözlemcisi (Watchdog)</span>
-              <span className={styles.cardDesc}>Automatically monitor network access and recover connection</span>
+              <span className={styles.cardTitle}>{t.watchdog}</span>
+              <span className={styles.cardDesc}>{t.watchdogDesc}</span>
             </div>
             <div className={styles.toggleWrapper}>
               <input
@@ -95,21 +99,21 @@ export function SafetyProxyView() {
             </div>
           </div>
           <p className={styles.detailedDesc}>
-            Performs background health checks on test targets (e.g. discord.com). If the watchdog detects that connection has been blocked, it triggers a recovery event to prompt preset optimization or restore bypass tunnel.
+            {t.watchdogDetailed}
           </p>
         </div>
       </div>
 
       {isRunning && (localKillSwitch !== killSwitch) && (
         <div className={styles.warningBox}>
-          <span>⚠️ Restart the bypass engine to apply the DNS Kill Switch firewall configuration!</span>
+          <span>{t.restartEngineWarning}</span>
         </div>
       )}
 
       <div className={styles.divider} />
 
       <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>Proxy</h3>
+        <h3 className={styles.sectionTitle}>{t.proxy}</h3>
 
         {/* SOCKS5 Proxy Card */}
         <div className={styles.card}>
@@ -118,8 +122,8 @@ export function SafetyProxyView() {
               <Network size={20} />
             </div>
             <div className={styles.cardTitleInfo}>
-              <span className={styles.cardTitle}>SOCKS5 Upstream Proxy</span>
-              <span className={styles.cardDesc}>Route DoH DNS queries through an external SOCKS5 proxy</span>
+              <span className={styles.cardTitle}>{t.socks5Proxy}</span>
+              <span className={styles.cardDesc}>{t.socks5ProxyDesc}</span>
             </div>
           </div>
 
@@ -131,7 +135,7 @@ export function SafetyProxyView() {
             placeholder="127.0.0.1:9050 (e.g. Tor)"
           />
           <p className={styles.detailedDesc}>
-            All Vane DNS Guard queries (DoH) will be tunneled through this proxy address. Leave empty to use direct internet connections.
+            {t.socks5ProxyDetailed}
           </p>
         </div>
       </div>
@@ -139,14 +143,14 @@ export function SafetyProxyView() {
       <footer className={styles.footer}>
         <button className={styles.saveBtn} onClick={handleSave}>
           <Save size={16} />
-          Save All
+          {t.saveAll}
         </button>
       </footer>
 
       {showToast && (
         <div className={styles.toastWrapper}>
           <Toast
-            message="Settings saved successfully!"
+            message={t.settingsSaved}
             type="success"
             onDismiss={() => setShowToast(false)}
           />

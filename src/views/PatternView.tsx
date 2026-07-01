@@ -1,20 +1,32 @@
 import { useState, useEffect } from 'react';
 import { useEngineStore } from '../store/engineStore';
-import { Globe, Shield, Ban, Save, AlertCircle } from 'lucide-react';
+import { Globe, Shield, Ban, Save, X } from 'lucide-react';
 import { Toast } from '../components/Toast/Toast';
+import { translations } from '../utils/translations';
+import { motion, AnimatePresence } from 'framer-motion';
 import styles from './PatternView.module.css';
 
 export function PatternView() {
   const {
     bypassMode,
-    domainList,
+    whitelistDomains,
+    blacklistDomains,
     setBypassMode,
+    setWhitelistDomains,
+    setBlacklistDomains,
     setDomainList,
-    status
+    status,
+    startEngine,
+    stopEngine,
+    language,
   } = useEngineStore();
 
+  const t = translations[language];
+
   const [localMode, setLocalMode] = useState<'all' | 'whitelist' | 'blacklist'>(bypassMode);
-  const [localList, setLocalList] = useState<string>(domainList);
+  const [localWhitelist, setLocalWhitelist] = useState<string>(whitelistDomains);
+  const [localBlacklist, setLocalBlacklist] = useState<string>(blacklistDomains);
+  
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning'>('success');
@@ -24,32 +36,77 @@ export function PatternView() {
   // Sync local state when store state changes (e.g., loaded from disk)
   useEffect(() => {
     setLocalMode(bypassMode);
-    setLocalList(domainList);
-  }, [bypassMode, domainList]);
+    setLocalWhitelist(whitelistDomains);
+    setLocalBlacklist(blacklistDomains);
+  }, [bypassMode, whitelistDomains, blacklistDomains]);
 
-  const handleSave = () => {
-    setBypassMode(localMode);
-    
-    // Clean domain list: trim spaces, remove empty lines
-    const cleanedList = localList
+  const cleanDomains = (text: string) => {
+    return text
       .split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 0)
       .join('\n');
-
-    setDomainList(cleanedList);
-    setLocalList(cleanedList);
-
-    setToastType('success');
-    setToastMessage(
-      isEngineRunning
-        ? 'Settings saved. Restart the bypass engine to apply changes!'
-        : 'Pattern configurations saved successfully!'
-    );
-    setShowToast(true);
   };
 
-  const domainCount = localList
+  const handleSave = async () => {
+    const cleanedWhitelist = cleanDomains(localWhitelist);
+    const cleanedBlacklist = cleanDomains(localBlacklist);
+
+    // Save to store
+    setBypassMode(localMode);
+    setWhitelistDomains(cleanedWhitelist);
+    setBlacklistDomains(cleanedBlacklist);
+    
+    // Sync with the backend's expected single domainList
+    let activeList = '';
+    if (localMode === 'whitelist') activeList = cleanedWhitelist;
+    else if (localMode === 'blacklist') activeList = cleanedBlacklist;
+    setDomainList(activeList);
+
+    setLocalWhitelist(cleanedWhitelist);
+    setLocalBlacklist(cleanedBlacklist);
+
+    if (isEngineRunning) {
+      setToastType('warning');
+      setToastMessage(t.restartingEngine);
+      setShowToast(true);
+      try {
+        await stopEngine();
+        await new Promise(r => setTimeout(r, 600)); // wait for process cleanup
+        await startEngine();
+        setToastType('success');
+        setToastMessage(t.savedAndRestarted);
+      } catch (err) {
+        setToastType('error');
+        setToastMessage(language === 'tr' ? `Motor yeniden başlatılamadı: ${err}` : `Failed to restart engine: ${err}`);
+      }
+    } else {
+      setToastType('success');
+      setToastMessage(t.savedSuccessfully);
+      setShowToast(true);
+    }
+  };
+
+  const handleCancel = () => {
+    setLocalMode(bypassMode);
+    setLocalWhitelist(whitelistDomains);
+    setLocalBlacklist(blacklistDomains);
+  };
+
+  const hasChanges = localMode !== bypassMode ||
+    (localMode === 'whitelist' && localWhitelist !== whitelistDomains) ||
+    (localMode === 'blacklist' && localBlacklist !== blacklistDomains);
+
+  const activeTextareaValue = localMode === 'whitelist' ? localWhitelist : localBlacklist;
+  const handleTextareaChange = (val: string) => {
+    if (localMode === 'whitelist') {
+      setLocalWhitelist(val);
+    } else {
+      setLocalBlacklist(val);
+    }
+  };
+
+  const domainCount = activeTextareaValue
     .split('\n')
     .map(line => line.trim())
     .filter(line => line.length > 0).length;
@@ -57,9 +114,9 @@ export function PatternView() {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h2 className={styles.title}>Bypass Pattern Control</h2>
+        <h2 className={styles.title}>{t.bypassPatternControl}</h2>
         <p className={styles.subtitle}>
-          Configure domain filtering rules to selectively apply or exclude the DPI desynchronization engine.
+          {t.bypassPatternDesc}
         </p>
       </header>
 
@@ -74,8 +131,8 @@ export function PatternView() {
             <Globe size={20} />
           </div>
           <div className={styles.cardContent}>
-            <span className={styles.cardTitle}>Bypass All Sites</span>
-            <span className={styles.cardDesc}>Apply desynchronization rules to all outgoing connection requests.</span>
+            <span className={styles.cardTitle}>{t.bypassAll}</span>
+            <span className={styles.cardDesc}>{t.bypassAllDesc}</span>
           </div>
         </div>
 
@@ -88,8 +145,8 @@ export function PatternView() {
             <Shield size={20} />
           </div>
           <div className={styles.cardContent}>
-            <span className={styles.cardTitle}>Only Whitelist</span>
-            <span className={styles.cardDesc}>Only apply desynchronization rules to domains listed below.</span>
+            <span className={styles.cardTitle}>{t.onlyWhitelist}</span>
+            <span className={styles.cardDesc}>{t.onlyWhitelistDesc}</span>
           </div>
         </div>
 
@@ -102,48 +159,71 @@ export function PatternView() {
             <Ban size={20} />
           </div>
           <div className={styles.cardContent}>
-            <span className={styles.cardTitle}>Exclude Blacklist</span>
-            <span className={styles.cardDesc}>Desynchronize all connections except for domains listed below.</span>
+            <span className={styles.cardTitle}>{t.excludeBlacklist}</span>
+            <span className={styles.cardDesc}>{t.excludeBlacklistDesc}</span>
           </div>
         </div>
       </div>
 
       {/* Domain Editor Section */}
-      {localMode !== 'all' && (
-        <div className={styles.editorSection}>
-          <div className={styles.editorHeader}>
-            <span className={styles.editorLabel}>Domain List</span>
-            <span className={styles.badge}>{domainCount} domain{domainCount !== 1 ? 's' : ''} listed</span>
-          </div>
+      <AnimatePresence mode="wait">
+        {localMode !== 'all' && (
+          <motion.div 
+            key={localMode}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className={styles.editorSection}
+          >
+            <div className={styles.editorHeader}>
+              <span className={styles.editorLabel}>
+                {localMode === 'whitelist' ? t.whitelistDomains : t.blacklistDomains}
+              </span>
+              <span className={styles.badge}>
+                {domainCount} {language === 'tr' ? 'alan adı listelendi' : `domain${domainCount !== 1 ? 's' : ''} listed`}
+              </span>
+            </div>
 
-          <textarea
-            className={styles.textarea}
-            value={localList}
-            onChange={(e) => setLocalList(e.target.value)}
-            placeholder="example.com&#10;*.google.com&#10;youtube.com"
-            spellCheck={false}
-          />
-          <span className={styles.helperText}>
-            Enter one domain per line. Wildcards (e.g., *.example.com) are supported.
-          </span>
-        </div>
-      )}
+            <textarea
+              className={styles.textarea}
+              value={activeTextareaValue}
+              onChange={(e) => handleTextareaChange(e.target.value)}
+              placeholder="example.com&#10;*.google.com&#10;youtube.com"
+              spellCheck={false}
+            />
+            <span className={styles.helperText}>
+              {t.wildcardHelper}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Warning if engine is active */}
-      {isEngineRunning && (
-        <div className={styles.warningBox}>
-          <AlertCircle size={15} />
-          <span>The bypass engine is currently active. You must restart the engine to apply new patterns.</span>
-        </div>
-      )}
-
-      {/* Save Action */}
-      <footer className={styles.footer}>
-        <button className={styles.saveBtn} onClick={handleSave}>
-          <Save size={16} />
-          Save Configurations
-        </button>
-      </footer>
+      {/* Action Banner (Save / Cancel) */}
+      <AnimatePresence>
+        {hasChanges && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            className={styles.actionBanner}
+          >
+            <div className={styles.bannerLeft}>
+              <div className={styles.bannerDot} />
+              <span className={styles.bannerText}>{t.unsavedChanges}</span>
+            </div>
+            <div className={styles.bannerActions}>
+              <button className={styles.cancelBtn} onClick={handleCancel}>
+                <X size={14} /> {t.cancel}
+              </button>
+              <button className={styles.saveBtn} onClick={handleSave}>
+                <Save size={14} /> {t.saveChanges}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Toast Feedback */}
       {showToast && (

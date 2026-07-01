@@ -277,7 +277,7 @@
 }
 
 .toggleActive {
-  background: #10b981;
+  background: var(--color-toggle-active);
 }
 
 .toggleKnob {

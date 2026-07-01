@@ -80,6 +80,33 @@ impl EngineManager {
         }
     }
 
+    fn verify_binary_hash(path: &std::path::Path, expected_hex: &str) -> Result<(), EngineError> {
+        use sha2::{Sha256, Digest};
+        use std::fs::File;
+        use std::io::Read;
+
+        let mut file = File::open(path).map_err(|e| EngineError::IoError(format!("Dosya açılamadı: {}", e)))?;
+        let mut hasher = Sha256::new();
+        let mut buffer = [0u8; 8192];
+        loop {
+            let n = file.read(&mut buffer).map_err(|e| EngineError::IoError(format!("Dosya okunamadı: {}", e)))?;
+            if n == 0 {
+                break;
+            }
+            hasher.update(&buffer[..n]);
+        }
+        let result = hasher.finalize();
+        let hex_result = format!("{:x}", result);
+        if hex_result.eq_ignore_ascii_case(expected_hex) {
+            Ok(())
+        } else {
+            Err(EngineError::IoError(format!(
+                "Bütünlük İhlali: SHA-256 imzası uyuşmuyor! Beklenen: {}, Bulunan: {}",
+                expected_hex, hex_result
+            )))
+        }
+    }
+
     // Safely resolves binary path from Resource
     fn resolve_binary_path(dispatcher: &impl EngineEventDispatcher) -> Result<std::path::PathBuf, EngineError> {
         #[cfg(target_os = "windows")]
@@ -90,6 +117,7 @@ impl EngineManager {
             if !path.exists() {
                 return Err(EngineError::BinaryNotFound(format!("winws.exe not found at: {}", path.display())));
             }
+            Self::verify_binary_hash(&path, "2DA71E80878DC270AC83F5893ECBB841F9752A57F1DA8FF9325636B4346BC632")?;
             Ok(path)
         }
 
@@ -101,6 +129,7 @@ impl EngineManager {
             if !path.exists() {
                 return Err(EngineError::BinaryNotFound(format!("nfqws not found at: {}", path.display())));
             }
+            Self::verify_binary_hash(&path, "8D3452CE0E0B9D9FED2A3A087B1CAECFD39A910B7A31B304078FCBED3EA0E33C")?;
             // Ensure executable permissions
             use std::os::unix::fs::PermissionsExt;
             if let Ok(metadata) = std::fs::metadata(&path) {
@@ -400,8 +429,14 @@ async fn spawn_and_run(
 
     #[cfg(target_os = "linux")]
     {
-        let binary_path_str = winws_path.to_string_lossy();
-        let args_str = prepared_args.join(" ");
+        let mut escaped_args = Vec::new();
+        for arg in &prepared_args {
+            let escaped = arg.replace('\'', "'\\''");
+            escaped_args.push(format!("'{}'", escaped));
+        }
+        let args_str = escaped_args.join(" ");
+        let binary_path_escaped = winws_path.to_string_lossy().replace('\'', "'\\''");
+        let binary_path_str = format!("'{}'", binary_path_escaped);
         
         let script = format!(
             "clean_up() {{ \
@@ -423,7 +458,7 @@ async fn spawn_and_run(
                  iptables -t mangle -D OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 200 2>/dev/null; \
                  iptables -t mangle -I OUTPUT -p tcp -m multiport --dports 80,443 -j NFQUEUE --queue-num 200 || exit 1; \
              fi; \
-             \"{}\" {} & ENGINE_PID=$!; \
+             {} {} & ENGINE_PID=$!; \
              echo \"READY:$ENGINE_PID\"; \
              cat > /dev/null",
             binary_path_str, args_str

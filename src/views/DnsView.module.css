@@ -1,10 +1,13 @@
 .view {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   user-select: none;
   position: relative;
   height: 100%;
+  padding: 16px; /* General/Advanced ile aynı w genişliği */
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .header {
@@ -57,14 +60,14 @@
 }
 
 .card.selected {
-  border-color: var(--color-accent);
+  border-color: var(--color-toggle-active);
 }
 
 .badge {
   position: absolute;
   top: 10px;
   right: 10px;
-  background: var(--color-accent);
+  background: var(--color-toggle-active);
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -178,19 +181,22 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 24px; /* view içinde en alta oturur */
-  margin: 0 auto;
-  z-index: 100;
+  bottom: 0;
+  margin: 0;
+  z-index: 1000; /* her şeyin üstünde */
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 16px;
+  padding: 14px 20px;
   background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-accent);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(139,92,246,0.1);
-  width: 95%; /* Biraz geniş boşlukla ortaya oturacak */
+  border-top: 1px solid var(--color-toggle-active);
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.6);
+  width: 100%;
 }
 
 .customLeft {
@@ -204,9 +210,9 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: var(--color-toggle-active);
   flex-shrink: 0;
-  box-shadow: 0 0 8px var(--color-accent-glow);
+  box-shadow: 0 0 8px rgba(92, 124, 250, 0.4);
   animation: dotPulse 2s ease-in-out infinite;
 }
 
@@ -220,7 +226,7 @@
 .customTitle {
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--color-accent);
+  color: var(--color-toggle-active);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -351,11 +357,11 @@
 }
 
 .select {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 8px 12px;
-  color: #f3f4f6;
+  color: var(--color-text-primary);
   font-family: inherit;
   font-size: 0.85rem;
   outline: none;
@@ -364,8 +370,8 @@
 }
 
 .select:focus {
-  border-color: var(--color-border-accent);
-  background: rgba(15, 23, 42, 0.8);
+  border-color: var(--color-toggle-active);
+  background: var(--color-bg-secondary);
 }
 
 .configItemRow {
@@ -430,7 +436,7 @@
 }
 
 .switchInput:checked + .switchLabel {
-  background: var(--color-accent);
+  background: var(--color-toggle-active);
 }
 
 .switchInput:checked + .switchLabel::after {

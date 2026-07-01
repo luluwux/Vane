@@ -2,6 +2,7 @@ import { Shield } from 'lucide-react';
 import styles from '../../../views/AdvancedView.module.css';
 import { Toggle } from '../ui/Toggle';
 import { NumberInput } from '../ui/NumberInput';
+import { useEngineStore } from '../../../store/engineStore';
 import type { AdvancedConfig } from '../../../store/engineStore';
 
 interface Props {
@@ -10,37 +11,70 @@ interface Props {
 }
 
 export function PacketTrafficCard({ config: c, update }: Props) {
+  const { language } = useEngineStore();
+  const isTr = language === 'tr';
+
   return (
     <div className={styles.card}>
       <div className={styles.cardHeader}>
         <Shield size={18} className={styles.cardIcon} />
-        <h3>Packet &amp; Traffic</h3>
+        <h3>{isTr ? 'Paket & Trafik Ayarları' : 'Packet & Traffic'}</h3>
       </div>
       <div className={styles.settingsList}>
+        {/* Auto TTL */}
         <div className={styles.settingRow}>
           <div className={styles.settingInfo}>
-            <label>Auto TTL</label>
-            <span>Automatically pick a safe fake TTL for the target.</span>
+            <label>{isTr ? 'Otomatik TTL' : 'Auto TTL'}</label>
+            <span>{isTr ? 'Hedef için otomatik olarak güvenli bir sahte TTL seçer. (--dpi-desync-autottl)' : 'Automatically pick a safe fake TTL for the target. (--dpi-desync-autottl)'}</span>
           </div>
           <Toggle checked={c.autoTtl} onChange={(v) => update('autoTtl', v)} />
         </div>
 
+        {/* Fake TTL */}
         {!c.autoTtl && (
           <div className={styles.settingRow}>
             <div className={styles.settingInfo}>
-              <label>Fake TTL</label>
-              <span>Fake packet life (3-8 is recommended for strict ISPs).</span>
+              <label>{isTr ? 'Sahte TTL (Fake TTL)' : 'Fake TTL'}</label>
+              <span>{isTr ? 'Sahte paket yaşam süresi (katı sağlayıcılar için 3-8 önerilir). (--dpi-desync-ttl)' : 'Fake packet life (3-8 is recommended for strict ISPs). (--dpi-desync-ttl)'}</span>
             </div>
-            <NumberInput value={c.fakeTtl} min={1} max={20} onChange={(v) => update('fakeTtl', v)} />
+            <NumberInput value={c.fakeTtl} min={1} max={64} onChange={(v) => update('fakeTtl', v)} />
           </div>
         )}
 
+        {/* Fake TTL Ext */}
         <div className={styles.settingRow}>
           <div className={styles.settingInfo}>
-            <label>MSS Fix</label>
-            <span>MTU/MSS size for fragmented packets.</span>
+            <label>{isTr ? 'Harici TTL Algılama (TTL Ext)' : 'External TTL Evasion'}</label>
+            <span>{isTr ? 'Hedef mesafe tespiti için ek TTL farkı. (--dpi-desync-ttl-ext)' : 'External hop detection TTL offset. (--dpi-desync-ttl-ext)'}</span>
+          </div>
+          <NumberInput value={c.fakeTtlExt} min={0} max={64} onChange={(v) => update('fakeTtlExt', v)} />
+        </div>
+
+        {/* MSS Fix */}
+        <div className={styles.settingRow}>
+          <div className={styles.settingInfo}>
+            <label>{isTr ? 'MSS Boyutu Düzeltmesi' : 'MSS Fix'}</label>
+            <span>{isTr ? 'Parçalanmış paketler için maksimum segment boyutu (MSS). (--mss)' : 'MTU/MSS size for fragmented packets. (--mss)'}</span>
           </div>
           <NumberInput value={c.mssFix} min={800} max={1500} onChange={(v) => update('mssFix', v)} />
+        </div>
+
+        {/* Desync Repeats */}
+        <div className={styles.settingRow}>
+          <div className={styles.settingInfo}>
+            <label>{isTr ? 'Tekrarlama Sayısı (Repeats)' : 'Desync Repeats'}</label>
+            <span>{isTr ? 'Paket manipülasyonunun kaç kez tekrarlanacağı. (--dpi-desync-repeats)' : 'How many times desync manipulation is repeated. (--dpi-desync-repeats)'}</span>
+          </div>
+          <NumberInput value={c.desyncRepeats} min={1} max={20} onChange={(v) => update('desyncRepeats', v)} />
+        </div>
+
+        {/* TCP Window Size */}
+        <div className={styles.settingRow}>
+          <div className={styles.settingInfo}>
+            <label>{isTr ? 'TCP Pencere Boyutu' : 'TCP Receiver Window'}</label>
+            <span>{isTr ? 'Verilerin küçük gelmesini sağlamak için alıcı penceresini küçültür. (--tcp-window-size)' : 'Reduce TCP window size to force smaller packets. (--tcp-window-size)'}</span>
+          </div>
+          <NumberInput value={c.tcpWindowSize} min={0} max={65535} onChange={(v) => update('tcpWindowSize', v)} />
         </div>
       </div>
     </div>

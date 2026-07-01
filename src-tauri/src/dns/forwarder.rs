@@ -165,6 +165,9 @@ fn get_cached_dns(qname: &str, qtype: u16) -> Option<bytes::Bytes> {
 fn set_cached_dns(qname: &str, qtype: u16, response_bytes: bytes::Bytes, ttl: u32) {
     if let Ok(mut guard) = DNS_CACHE.write() {
         if let Some(ref mut cache) = *guard {
+            if cache.len() >= 5000 {
+                cache.clear();
+            }
             let expires_at = std::time::Instant::now() + std::time::Duration::from_secs(ttl as u64);
             cache.insert(
                 format!("{}:{}", qname, qtype),
@@ -334,7 +337,7 @@ async fn run_forwarder_loop(
     fallback_dns: String,
     shutdown: Arc<AtomicBool>,
 ) {
-    let mut buf = vec![0u8; 512];
+    let mut buf = vec![0u8; 4096];
     const MAX_CONCURRENT_DNS_REQUESTS: usize = 100;
     let semaphore = Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_DNS_REQUESTS));
 
@@ -385,7 +388,7 @@ async fn query_fallback_dns(fallback_dns: &str, query_bytes: &[u8]) -> Option<by
     let target = format!("{}:53", fallback_dns);
     socket.send_to(query_bytes, &target).await.ok()?;
     
-    let mut buf = vec![0u8; 512];
+    let mut buf = vec![0u8; 4096];
     let recv_result = tokio::time::timeout(
         std::time::Duration::from_secs(3),
         socket.recv_from(&mut buf),

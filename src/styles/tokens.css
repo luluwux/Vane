@@ -17,6 +17,9 @@
   --color-accent-dim: rgba(139, 92, 246, 0.15);
   --color-accent-glow: rgba(139, 92, 246, 0.35);
 
+  /* Switch / Toggle Active Color */
+  --color-toggle-active: #5c7cfa;
+
   /* Semantic */
   --color-success: #10b981;
   --color-success-dim: rgba(16, 185, 129, 0.15);

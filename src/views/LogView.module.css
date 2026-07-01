@@ -2,5 +2,80 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: var(--space-4) var(--space-4) var(--space-4)
+  padding: 16px;
+  gap: 16px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.chartsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.chartCard {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chartHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chartTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dnsIcon {
+  color: #5c7cfa;
+}
+
+.netIcon {
+  color: #10b981;
+}
+
+.dnsValue {
+  color: #5c7cfa;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.netValue {
+  color: #10b981;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.chartWrapper {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.viewerContainer {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }

@@ -1,44 +1,47 @@
 import { useState } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { LayoutDashboard, Scroll, DatabaseZap, FlaskConical, LifeBuoy, Layers, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Scroll, DatabaseZap, FlaskConical, LifeBuoy, Layers } from 'lucide-react';
 import { HomeView } from './HomeView';
 import { LogView } from './LogView';
 import { AdvancedView } from './AdvancedView';
 import { DnsView } from './DnsView';
 import { FeedbackView } from './FeedbackView';
 import { PatternView } from './PatternView';
-import { SafetyProxyView } from './SafetyProxyView';
 import { useEngineStore } from '../store/engineStore';
+import { translations } from '../utils/translations';
 import styles from './SettingsWindow.module.css';
 
-type SettingsTab = 'general' | 'connection' | 'dns' | 'advanced' | 'pattern' | 'safety_proxy' | 'feedback';
+type SettingsTab = 'general' | 'connection' | 'dns' | 'advanced' | 'pattern' | 'feedback';
 
 export function SettingsWindow() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
-  const { advancedDirty } = useEngineStore();
+  const { advancedDirty, language } = useEngineStore();
 
   const appWindow = getCurrentWebviewWindow();
   const closeWindow = async () => await appWindow.close();
   const minimizeWindow = async () => await appWindow.minimize();
   const toggleMaximize = async () => await appWindow.toggleMaximize();
 
+  const t = translations[language];
+
   const topTabs = [
-    { id: 'general', label: 'General', icon: LayoutDashboard },
-    { id: 'dns', label: 'DNS', icon: DatabaseZap },
-    { id: 'advanced', label: 'Advanced', icon: FlaskConical },
-    { id: 'pattern', label: 'Pattern', icon: Layers },
-    { id: 'safety_proxy', label: 'Safety & Proxy', icon: ShieldAlert },
+    { id: 'general', label: t.general, icon: LayoutDashboard },
+    { id: 'dns', label: t.dns, icon: DatabaseZap },
+    { id: 'advanced', label: t.advanced, icon: FlaskConical },
+    { id: 'pattern', label: t.pattern, icon: Layers },
   ];
 
   const bottomTabs = [
-    { id: 'connection', label: 'Logs', icon: Scroll },
-    { id: 'feedback', label: 'Feedback', icon: LifeBuoy },
+    { id: 'connection', label: t.logs, icon: Scroll },
+    { id: 'feedback', label: t.feedback, icon: LifeBuoy },
   ];
 
   const handleTabChange = (tabId: SettingsTab) => {
     if (advancedDirty && activeTab === 'advanced' && tabId !== 'advanced') {
       const confirmed = window.confirm(
-        'There are unsaved changes. If you continue, your changes will be lost. Do you want to leave?'
+        language === 'tr'
+          ? 'Kaydedilmemiş değişiklikler var. Devam ederseniz değişiklikleriniz kaybolacaktır. Ayrılmak istiyor musunuz?'
+          : 'There are unsaved changes. If you continue, your changes will be lost. Do you want to leave?'
       );
       if (!confirmed) return;
     }
@@ -53,7 +56,7 @@ export function SettingsWindow() {
           data-tauri-drag-region="true"
           onPointerDown={() => appWindow.startDragging()}
         >
-          <span className={styles.windowTitle}>Vane - Settings</span>
+          <span className={styles.windowTitle}>{t.settingsTitle}</span>
         </div>
 
         <div className={styles.windowControls}>
@@ -126,7 +129,6 @@ export function SettingsWindow() {
             {activeTab === 'dns' && <DnsView />}
             {activeTab === 'advanced' && <AdvancedView />}
             {activeTab === 'pattern' && <PatternView />}
-            {activeTab === 'safety_proxy' && <SafetyProxyView />}
             {activeTab === 'feedback' && <FeedbackView />}
           </div>
         </main>

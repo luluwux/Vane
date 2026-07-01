@@ -60,6 +60,26 @@ export interface AdvancedConfig {
   // Protocol & Ports
   quicUdpHandling: boolean;   // --wf-udp=443
   httpPorts: string;          // --wf-tcp=
+
+  // --- NEW ZAPRET FIELDS ---
+  desyncHttp: string;         // --dpi-desync-http
+  desyncHttps: string;        // --dpi-desync-https
+  desyncQuic: string;         // --dpi-desync-quic
+  desyncCutoff: string;       // --dpi-desync-cutoff
+  splitHttpReq: string;       // --dpi-desync-split-http-req (none, method, host)
+  splitPosHttpReq: number;    // --dpi-desync-split-pos-http-req
+  splitTls: string;           // --dpi-desync-split-tls (none, sni, snh)
+  splitPosTls: number;        // --dpi-desync-split-pos-tls
+  fakeTtlExt: number;         // --dpi-desync-ttl-ext
+  fakeTlsSni: string;         // --dpi-desync-fake-tls-sni
+  fakeHttpPayload: string;    // --dpi-desync-fake-http (string/filepath)
+  fakeTlsPayload: string;     // --dpi-desync-fake-tls (string/filepath)
+  fakeQuicPayload: string;    // --dpi-desync-fake-quic (string/filepath)
+  desync2: string;            // --dpi-desync2
+  tcpWindowSize: number;      // --tcp-window-size
+  ipsetPath: string;          // --ipset
+  tpwsMode: boolean;          // Runs tpws instead of nfqws/winws
+  bindInterface: string;      // --bind-addr
 }
 
 export const DEFAULT_ADVANCED_CONFIG: AdvancedConfig = {
@@ -74,6 +94,24 @@ export const DEFAULT_ADVANCED_CONFIG: AdvancedConfig = {
   mssFix: 1300,
   quicUdpHandling: true,
   httpPorts: '80, 443',
+  desyncHttp: 'none',
+  desyncHttps: 'none',
+  desyncQuic: 'none',
+  desyncCutoff: 'd3',
+  splitHttpReq: 'none',
+  splitPosHttpReq: 0,
+  splitTls: 'none',
+  splitPosTls: 0,
+  fakeTtlExt: 0,
+  fakeTlsSni: '',
+  fakeHttpPayload: '',
+  fakeTlsPayload: '',
+  fakeQuicPayload: '',
+  desync2: 'none',
+  tcpWindowSize: 0,
+  ipsetPath: '',
+  tpwsMode: false,
+  bindInterface: '',
 };
 
 /* 
@@ -127,12 +165,15 @@ interface EngineStore {
   healthCheckTargets: string[];
   bypassMode: 'all' | 'whitelist' | 'blacklist';
   domainList: string;
+  whitelistDomains: string;
+  blacklistDomains: string;
   dnsProtocol: 'doh' | 'dot' | 'doq';
   dnsAdBlock: boolean;
   dnsCache: boolean;
   proxySocks5: string;
   killSwitch: boolean;
   watchdog: boolean;
+  language: 'tr' | 'en';
 
   // Geçici (session) alanlar
   status: EngineStatus;
@@ -157,12 +198,15 @@ interface EngineStore {
   setHealthCheckTargets: (targets: string[]) => void;
   setBypassMode: (mode: 'all' | 'whitelist' | 'blacklist') => void;
   setDomainList: (list: string) => void;
+  setWhitelistDomains: (list: string) => void;
+  setBlacklistDomains: (list: string) => void;
   setDnsProtocol: (protocol: 'doh' | 'dot' | 'doq') => void;
   setDnsAdBlock: (enabled: boolean) => void;
   setDnsCache: (enabled: boolean) => void;
   setProxySocks5: (addr: string) => void;
   setKillSwitch: (enabled: boolean) => void;
   setWatchdog: (enabled: boolean) => void;
+  setLanguage: (lang: 'tr' | 'en') => void;
 
   refreshPresets: () => Promise<void>;
   deletePreset: (presetId: string) => Promise<void>;
@@ -189,12 +233,15 @@ export const useEngineStore = create<EngineStore>()(
       advancedConfig: DEFAULT_ADVANCED_CONFIG,
       bypassMode: 'all',
       domainList: '',
+      whitelistDomains: '',
+      blacklistDomains: '',
       dnsProtocol: 'doh',
       dnsAdBlock: false,
       dnsCache: true,
       proxySocks5: '',
       killSwitch: false,
       watchdog: true,
+      language: 'tr',
 
       // Session değerleri (persist edilmez)
       status: { variant: 'stopped' },
@@ -234,12 +281,15 @@ export const useEngineStore = create<EngineStore>()(
       clearLogs: () => set({ logs: [] }),
       setBypassMode: (bypassMode) => set({ bypassMode }),
       setDomainList: (domainList) => set({ domainList }),
+      setWhitelistDomains: (whitelistDomains) => set({ whitelistDomains }),
+      setBlacklistDomains: (blacklistDomains) => set({ blacklistDomains }),
       setDnsProtocol: (dnsProtocol) => set({ dnsProtocol }),
       setDnsAdBlock: (dnsAdBlock) => set({ dnsAdBlock }),
       setDnsCache: (dnsCache) => set({ dnsCache }),
       setProxySocks5: (proxySocks5) => set({ proxySocks5 }),
       setKillSwitch: (killSwitch) => set({ killSwitch }),
       setWatchdog: (watchdog) => set({ watchdog }),
+      setLanguage: (language) => set({ language }),
 
       appendLog: (content, level = 'info') => set((state) => {
         const newLine: LogLine = {
@@ -370,12 +420,15 @@ export const useEngineStore = create<EngineStore>()(
         healthCheckTargets: state.healthCheckTargets,
         bypassMode: state.bypassMode,
         domainList: state.domainList,
+        whitelistDomains: state.whitelistDomains,
+        blacklistDomains: state.blacklistDomains,
         dnsProtocol: state.dnsProtocol,
         dnsAdBlock: state.dnsAdBlock,
         dnsCache: state.dnsCache,
         proxySocks5: state.proxySocks5,
         killSwitch: state.killSwitch,
         watchdog: state.watchdog,
+        language: state.language,
       }),
     }
   )

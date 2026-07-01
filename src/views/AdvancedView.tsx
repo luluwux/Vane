@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
-import { Trash2, RotateCcw, RefreshCw } from 'lucide-react';
+import { Trash2, RotateCcw, RefreshCw, HardDriveDownload, HardDriveUpload } from 'lucide-react';
 import styles from './AdvancedView.module.css';
 
 import {
@@ -12,13 +12,18 @@ import {
 import { parseArgsToConfig, serializeConfigToArgs } from '../utils/argsParser';
 import { validateImportedPreset } from '../utils/presetValidator';
 import type { Preset } from '../types/engine';
+import { translations } from '../utils/translations';
 
 import { PresetDropdown } from '../components/advanced/bars/PresetDropdown';
-import { ImportExportBar } from '../components/advanced/bars/ImportExportBar';
 import { UnsavedBanner } from '../components/advanced/bars/UnsavedBanner';
 import { DpiDesyncCard } from '../components/advanced/cards/DpiDesyncCard';
 import { PacketTrafficCard } from '../components/advanced/cards/PacketTrafficCard';
 import { ProtocolPortsCard } from '../components/advanced/cards/ProtocolPortsCard';
+import { SafetyCard } from '../components/advanced/cards/SafetyCard';
+import { ProxyCard } from '../components/advanced/cards/ProxyCard';
+import { EvasionFoolingCard } from '../components/advanced/cards/EvasionFoolingCard';
+import { PayloadsCard } from '../components/advanced/cards/PayloadsCard';
+import { TProxyCard } from '../components/advanced/cards/TProxyCard';
 
 function slugify(text: string) {
   return text.toString().toLowerCase()
@@ -43,13 +48,17 @@ export function AdvancedView() {
     deletePreset,
     startEngine,
     stopEngine,
+    language,
   } = useEngineStore();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const t = translations[language];
 
   const isRunning = status.variant === 'running';
   const [isApplying, setIsApplying] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isReset, setIsReset] = useState(false);
-  const [profileName, setProfileName] = useState('My Custom Preset');
+  const [profileName, setProfileName] = useState(language === 'tr' ? 'Özel Profilim' : 'My Custom Preset');
 
   const [snapshot, setSnapshot] = useState<AdvancedConfig>(advancedConfig);
 
@@ -138,7 +147,11 @@ export function AdvancedView() {
   const handleDelete = async () => {
     if (!activePresetId || !activePreset?.isCustom) return;
 
-    if (window.confirm(`Are you sure you want to delete the profile '${activePreset.label}'?`)) {
+    const confirmMsg = language === 'tr'
+      ? `'${activePreset.label}' profilini silmek istediğinize emin misiniz?`
+      : `Are you sure you want to delete the profile '${activePreset.label}'?`;
+
+    if (window.confirm(confirmMsg)) {
       setIsApplying(true);
       try {
         await deletePreset(activePresetId);
@@ -184,7 +197,10 @@ export function AdvancedView() {
         const rawJson = JSON.parse(event.target?.result as string);
         const validation = validateImportedPreset(rawJson);
         if (!validation.ok) {
-          alert(`Invalid or unsafe preset:\n\n${validation.error}`);
+          const invalidMsg = language === 'tr'
+            ? `Geçersiz veya güvenli olmayan profil:\n\n${validation.error}`
+            : `Invalid or unsafe preset:\n\n${validation.error}`;
+          alert(invalidMsg);
           return;
         }
 
@@ -204,7 +220,10 @@ export function AdvancedView() {
         if (isRunning) { await stopEngine(); await startEngine(preset.id); }
       } catch (err) {
         console.error('Import error:', err);
-        alert('Failed to read the file. Please select a valid JSON preset.');
+        const failReadMsg = language === 'tr'
+          ? 'Dosya okunamadı. Lütfen geçerli bir JSON profili seçin.'
+          : 'Failed to read the file. Please select a valid JSON preset.';
+        alert(failReadMsg);
       }
     };
     reader.readAsText(file);
@@ -216,20 +235,51 @@ export function AdvancedView() {
     <div className={styles.view}>
       <div className={styles.headerRow}>
         <div className={styles.titleArea}>
-          <h2 className={styles.title}>Advanced Settings</h2>
+          <h2 className={styles.title}>{t.advancedTitle}</h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Import / Export Buttons */}
+          <button 
+            className={styles.actionBtn} 
+            onClick={() => fileInputRef.current?.click()} 
+            title={language === 'tr' ? 'Profil İçe Aktar' : 'Import Profile'}
+          >
+            <HardDriveUpload size={16} />
+            <span>{language === 'tr' ? 'İçe Aktar' : 'Import'}</span>
+          </button>
+          
+          <button 
+            className={styles.actionBtn} 
+            onClick={handleExport} 
+            disabled={!profileName.trim()} 
+            title={language === 'tr' ? 'Profili Dışa Aktar' : 'Export Profile'}
+          >
+            <HardDriveDownload size={16} />
+            <span>{language === 'tr' ? 'Dışa Aktar' : 'Export'}</span>
+          </button>
+
+          <input 
+            type="file" 
+            accept=".json" 
+            ref={fileInputRef} 
+            style={{ display: 'none' }} 
+            onChange={(e) => {
+              handleFileChange(e);
+              if (fileInputRef.current) fileInputRef.current.value = '';
+            }} 
+          />
+
           <PresetDropdown activePresetId={activePresetId} presets={presets} onSelect={handlePresetSelect} />
 
           {isApplying && <RefreshCw size={18} className={styles.spin} color="#5c7cfa" />}
           
           {activePreset?.isCustom && activePreset.id !== 'default' && !isDirty && (
-            <button className={styles.actionBtn} onClick={handleDelete} title="Delete this profile" style={{ color: '#ff6b6b', borderColor: 'rgba(255, 107, 107, 0.2)' }}>
+            <button className={styles.actionBtn} onClick={handleDelete} title={language === 'tr' ? 'Bu profili sil' : 'Delete this profile'} style={{ color: '#ff6b6b', borderColor: 'rgba(255, 107, 107, 0.2)' }}>
               <Trash2 size={16} />
             </button>
           )}
           
-          <button className={styles.actionBtn} onClick={handleReset} title="Reset to Defaults">
+          <button className={styles.actionBtn} onClick={handleReset} title={t.resetDefault}>
             <RotateCcw size={16} />
           </button>
         </div>
@@ -239,13 +289,12 @@ export function AdvancedView() {
         <DpiDesyncCard config={c} update={update} />
         <PacketTrafficCard config={c} update={update} />
         <ProtocolPortsCard config={c} update={update} />
+        <EvasionFoolingCard config={c} update={update} />
+        <PayloadsCard config={c} update={update} />
+        <TProxyCard config={c} update={update} />
+        <SafetyCard />
+        <ProxyCard />
       </div>
-
-      <ImportExportBar 
-        onExport={handleExport} 
-        onImport={handleFileChange} 
-        exportDisabled={!profileName.trim()} 
-      />
 
       <UnsavedBanner 
         isDirty={isDirty} 
