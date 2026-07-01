@@ -7,7 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.1.4] - 2026-07-01
+## [2.0.0] - 2026-07-01
+
+### 🚀 Major Release — Repo Hardening & Documentation Overhaul
+
+### Added
+- **Community Health Files**: `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md` — full community infrastructure for open-source contributors.
+- **GitHub Issue & PR Templates**: Bug report, feature request, and pull request templates under `.github/`.
+- **Binary Integrity Verification**: SHA-256 hash check for `winws.exe` (Windows) and `nfqws` (Linux) at engine startup — prevents binary substitution attacks.
+- **Security Contact Information**: `alp@archey.com.tr` and Discord (`852103749228036136`) as official vulnerability reporting channels in `SECURITY.md`.
+- **Comprehensive README (EN + TR)**: Full technical documentation in both English and Turkish — covers DPI theory, all zapret desync strategies, every Advanced tab parameter, fooling modes, payload customization, Linux firewall setup, security architecture table, and troubleshooting guide.
+- **Remote Preset Sync**: Fetch and cryptographically verify (Minisign) preset definitions from a remote CDN endpoint.
+- **TPWS Proxy Mode**: Transparent SOCKS5 proxy via `tpws` as an alternative to raw packet diversion.
+- **IPSet File Support**: Target desync rules to specific IP ranges via `--ipset` file path.
+- **Advanced Fooling Flags Panel**: Multi-select checkboxes for `badseq`, `badsum`, `md5sig`, `datanoack`, `hopbyhop` (IPv6), `destopt` (IPv6).
+- **Custom Payload Fields**: Per-protocol (HTTP/TLS/QUIC) custom fake packet payload strings and file paths.
+- **Per-Protocol Desync Overrides**: Independent desync method selectors for HTTP, HTTPS/TLS, and QUIC connections.
+- **Second Stage Desync (`--dpi-desync2`)**: Fallback strategy when the primary desync fails.
+- **Desync Cutoff (`--dpi-desync-cutoff`)**: Limit desync to the first N data or SYN packets per session.
+- **TCP Receiver Window Override (`--tcp-window-size`)**: Force smaller server-sent segments to evade certificate-based inspection.
+- **Bind Interface (`--bind-addr`)**: Attach the engine to a specific network interface IP.
+- **TLS Split Type (`sni` / `snh`)**: Split TLS ClientHello at the SNI or SNH boundary for precise evasion.
+- **Windows Job Object Process Isolation**: `KILL_ON_JOB_CLOSE` flag ensures child processes are terminated on app exit or crash.
+- **Network Speed & DNS Traffic Meters**: Real-time upload/download speed and DNS queries-per-second metrics in the Log view.
+
+### Changed
+- Removed all `.claude/` AI assistant configuration files from the repository (cleanup).
+- Import/Export preset buttons relocated to the Advanced tab header section.
+- Kill Switch and Watchdog settings unified under the Advanced tab.
+- Default installer mode changed to `perMachine` for system-level binary protection.
+- DNS socket read buffer increased from 512 bytes to 4096 bytes (EDNS0 compatibility).
+
+### Security
+- Fixed IPC `open_url` command to only accept `http://` and `https://` URI schemes (prevents arbitrary protocol execution).
+- Fixed shell command injection in the Linux `pkexec` root wrapper via single-quote argument escaping.
+- Enforced 5,000 entry cap on the DNS cache to prevent unbounded memory growth.
+- All user-supplied arguments validated against a strict whitelist before being passed to the engine process (`sanitizer.rs`).
+
+### Fixed
+- Resolved all NPM advisory CVEs via `npm audit fix`.
+- Fixed UI layout and toggle component alignment across DNS, Pattern, and Advanced views.
+
+---
+
+## [1.1.4] - 2026-06-15
 
 ### Added
 - Expose all advanced Zapret desync parameters in the **Advanced Settings** tab (including HTTP/HTTPS/QUIC protocol-specific methods, desync2 secondary strategy, desync cutoff limits, bind address, and TCP receiver window sizing).
